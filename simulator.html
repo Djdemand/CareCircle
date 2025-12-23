@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CareCircle - Glass Hydration Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; overflow: hidden; }
+        .mobile-shadow { box-shadow: 0 50px 100px -20px rgba(0,0,0,0.8); }
+        .nav-active { color: #3b82f6; font-weight: 900; }
+        .hidden-tab { display: none; }
+        /* Glass Styling */
+        .glass-container {
+            width: 80px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 3px solid rgba(255, 255, 255, 0.2);
+            border-bottom-left-radius: 15px;
+            border-bottom-right-radius: 15px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        .water-fill {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: linear-gradient(to top, #3b82f6, #60a5fa);
+            transition: height 1s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .water-wave {
+            position: absolute;
+            top: -10px;
+            left: 0;
+            width: 200%;
+            height: 20px;
+            background: url('data:image/svg+xml;utf8,<svg viewBox="0 0 100 20" xmlns="http://www.w3.org/2000/svg"><path d="M0 10 Q 25 0 50 10 T 100 10 V 20 H 0 Z" fill="%2360a5fa"/></svg>');
+            background-size: 50% 100%;
+            animation: wave 2s linear infinite;
+        }
+        @keyframes wave { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+    </style>
+</head>
+<body class="bg-[#020617] flex justify-center items-center min-h-screen p-4 gap-8">
+
+    <!-- Simulator Control Left -->
+    <div class="hidden lg:block w-72 space-y-4">
+        <div class="bg-slate-900 p-6 rounded-[32px] border border-slate-800 text-white">
+            <h2 class="text-xs font-black uppercase tracking-widest text-blue-400 mb-4">Caregiver Profiles</h2>
+            <div class="space-y-2" id="userList">
+                <button onclick="switchUser('Sarah')" id="user-Sarah" class="w-full text-left p-3 rounded-2xl bg-blue-600 font-bold flex items-center gap-3 transition-all text-sm">
+                    <div class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-xs">S</div> Sarah (Primary)
+                </button>
+                <button onclick="switchUser('John')" id="user-John" class="w-full text-left p-3 rounded-2xl bg-slate-800/50 hover:bg-slate-800 font-bold flex items-center gap-3 transition-all text-sm">
+                    <div class="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-xs">J</div> John (Night)
+                </button>
+                <button onclick="switchUser('Emma')" id="user-Emma" class="w-full text-left p-3 rounded-2xl bg-slate-800/50 hover:bg-slate-800 font-bold flex items-center gap-3 transition-all text-sm">
+                    <div class="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center text-xs">E</div> Emma (Support)
+                </button>
+            </div>
+        </div>
+
+        <div class="bg-slate-900 p-6 rounded-[32px] border border-slate-800 text-white min-h-[200px]">
+            <h2 class="text-xs font-black uppercase tracking-widest text-emerald-400 mb-4">Live Activity</h2>
+            <div id="simLog" class="text-[10px] font-mono space-y-2 opacity-80 h-40 overflow-y-auto">
+                <span class="text-emerald-500">> Glass Vizualization Ready</span><br>
+                <span class="text-slate-500">> Tracking daily 64oz goal</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Frame -->
+    <div class="w-[375px] h-[780px] bg-slate-950 rounded-[60px] border-[12px] border-black overflow-hidden relative mobile-shadow flex flex-col">
+        
+        <!-- Status Bar -->
+        <div class="px-8 pt-4 pb-2 flex justify-between items-center text-[10px] font-bold text-slate-400">
+            <span>9:41</span>
+            <div class="flex gap-1.5 items-center">
+                <i class="fas fa-signal"></i>
+                <i class="fas fa-wifi text-xs"></i>
+                <div class="w-5 h-2.5 border border-slate-400 rounded-[2px] relative">
+                    <div class="absolute inset-y-[1px] left-[1px] right-[4px] bg-slate-400 rounded-[1px]"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dynamic Header -->
+        <header class="px-6 pt-2 pb-4 bg-slate-950">
+            <div class="flex justify-between items-center mb-1">
+                <h1 id="screenTitle" class="text-2xl font-black text-slate-50 leading-none">Home</h1>
+                <div class="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center border border-slate-700">
+                    <img id="userAvatar" src="https://ui-avatars.com/api/?name=Sarah&background=1e293b&color=fff" class="rounded-full" alt="User">
+                </div>
+            </div>
+            <p class="text-[11px] font-black text-cyan-500 uppercase tracking-widest" id="activeUser">Sarah's Session</p>
+        </header>
+
+        <!-- Screens Content -->
+        <main id="screenContent" class="flex-1 overflow-y-auto px-5 bg-slate-950">
+            
+            <!-- HOME SCREEN -->
+            <section id="tab-home" class="space-y-6">
+                <!-- NEW Glass Hydration Tracker -->
+                <div class="bg-slate-900 border border-slate-800 rounded-[40px] p-6 flex items-center gap-6 shadow-xl">
+                    <div class="glass-container">
+                        <div id="waterFill" class="water-fill" style="height: 65%;">
+                            <div class="water-wave"></div>
+                        </div>
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="text-xs font-black text-slate-500 uppercase tracking-widest mb-1">Hydration</h3>
+                        <p class="text-3xl font-black text-slate-50"><span id="labelWater">42</span><span class="text-lg opacity-40 ml-1">oz</span></p>
+                        <p class="text-[10px] font-bold text-blue-500 uppercase tracking-tighter mt-1">Goal: 64oz</p>
+                        
+                        <div class="flex gap-2 w-full mt-4">
+                            <button onclick="logWater(8)" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white rounded-xl py-3 text-[10px] font-black transition-all shadow-lg shadow-blue-900/40">+ 8oz</button>
+                            <button onclick="logWater(16)" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl py-3 text-[10px] font-black transition-all border border-slate-700">+ 16oz</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Vitals View -->
+                <div class="flex gap-3">
+                    <div class="flex-1 bg-slate-900 border border-slate-800 rounded-3xl p-4">
+                        <i class="fas fa-heartbeat text-rose-500 mb-2"></i>
+                        <p class="text-[10px] uppercase font-black text-slate-500">Temp</p>
+                        <p class="text-lg font-black text-slate-50">98.6<span class="text-xs ml-0.5 opacity-40">°F</span></p>
+                    </div>
+                    <div class="flex-1 bg-slate-900 border border-slate-800 rounded-3xl p-4">
+                        <i class="fas fa-wind text-cyan-500 mb-2"></i>
+                        <p class="text-[10px] uppercase font-black text-slate-500">Oxygen</p>
+                        <p class="text-lg font-black text-slate-50">99<span class="text-xs ml-0.5 opacity-40">%</span></p>
+                    </div>
+                </div>
+
+                <!-- Next Up -->
+                <div>
+                    <h2 class="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4">Medications Schedule</h2>
+                    <div id="medListMain" class="space-y-3">
+                        <div class="bg-slate-900 border border-slate-800 rounded-[32px] p-5 shadow-lg">
+                            <div class="flex justify-between items-start mb-4">
+                                <div class="w-10 h-10 bg-orange-500/10 text-orange-500 rounded-2xl flex items-center justify-center">
+                                    <i class="fas fa-capsules"></i>
+                                </div>
+                                <span class="bg-orange-500 text-white text-[9px] font-black px-2 py-1 rounded-lg uppercase">Urgent</span>
+                            </div>
+                            <h3 class="text-lg font-black text-slate-50">Amoxicillin</h3>
+                            <p class="text-xs text-slate-400 font-bold mb-4">500mg - Day 4 of 7</p>
+                            <button id="btn-med-1" onclick="giveMed(1, 'Amoxicillin')" class="w-full bg-white text-slate-950 font-black py-4 rounded-2xl text-xs hover:bg-slate-100 transition-all">Mark as Taken</button>
+                            <div id="status-med-1" class="hidden text-center text-[10px] font-black text-emerald-400 uppercase tracking-widest mt-2 flex items-center justify-center gap-1">
+                                <i class="fas fa-check-circle"></i> Logged by <span class="logged-by-name">Sarah</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Other tabs HIDDEN for focused preview -->
+            <section id="tab-logs" class="hidden-tab"></section>
+            <section id="tab-add" class="hidden-tab"></section>
+            <section id="tab-team" class="hidden-tab"></section>
+
+        </main>
+
+        <!-- Navigation Bar -->
+        <nav class="bg-slate-950 border-t border-slate-900 px-8 py-3 flex justify-between items-center pb-8">
+            <button onclick="navigate('home')" id="nav-home" class="nav-active flex flex-col items-center gap-1">
+                <i class="fas fa-home text-lg"></i>
+                <span class="text-[8px] uppercase tracking-tighter">Home</span>
+            </button>
+            <i class="fas fa-history text-slate-700 text-lg"></i>
+            <div class="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-slate-950 -mt-10 shadow-xl">
+                <i class="fas fa-plus text-lg"></i>
+            </div>
+            <i class="fas fa-users-cog text-slate-700 text-lg"></i>
+        </nav>
+
+        <!-- Notification -->
+        <div id="toast" class="fixed bottom-32 left-1/2 transform -translate-x-1/2 bg-white text-slate-950 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-2xl opacity-0 transition-all pointer-events-none z-50">
+            Toast
+        </div>
+    </div>
+
+    <script>
+        let state = {
+            user: 'Sarah',
+            water: 42,
+            meds: { 1: { taken: false, by: '' } }
+        };
+
+        function switchUser(name) {
+            state.user = name;
+            document.querySelectorAll('#userList button').forEach(b => {
+                b.className = 'w-full text-left p-3 rounded-2xl bg-slate-800/50 hover:bg-slate-800 font-bold flex items-center gap-3 transition-all text-sm';
+            });
+            document.getElementById(`user-${name}`).className = 'w-full text-left p-3 rounded-2xl bg-blue-600 font-bold flex items-center gap-3 transition-all text-sm';
+            document.getElementById('activeUser').innerText = `${name}'s Session`;
+            updateUI();
+        }
+
+        function logWater(oz) {
+            state.water = Math.min(state.water + oz, 64);
+            const row = document.createElement('div');
+            row.style.color = '#3b82f6';
+            row.innerHTML = `> [${new Date().toLocaleTimeString()}] Water Logged: +${oz}oz by ${state.user}`;
+            document.getElementById('simLog').prepend(row);
+            updateUI();
+        }
+
+        function giveMed(id, name) {
+            state.meds[id] = { taken: true, by: state.user };
+            const row = document.createElement('div');
+            row.style.color = '#10b981';
+            row.innerHTML = `> [${new Date().toLocaleTimeString()}] DOSE OK: ${name} by ${state.user}`;
+            document.getElementById('simLog').prepend(row);
+            showToast(`${name} Recorded`);
+            updateUI();
+        }
+
+        function updateUI() {
+            document.getElementById('labelWater').innerText = state.water;
+            const fillHeight = (state.water / 64) * 100;
+            document.getElementById('waterFill').style.height = `${fillHeight}%`;
+
+            if (state.meds[1].taken) {
+                document.getElementById('btn-med-1').classList.add('hidden');
+                document.getElementById('status-med-1').classList.remove('hidden');
+                document.getElementById('status-med-1').querySelector('.logged-by-name').innerText = state.meds[1].by;
+            } else {
+                document.getElementById('btn-med-1').classList.remove('hidden');
+                document.getElementById('status-med-1').classList.add('hidden');
+            }
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.innerText = msg;
+            t.style.opacity = '1';
+            t.style.transform = 'translate(-50%, -20px)';
+            setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translate(-50%, 0px)'; }, 2000);
+        }
+
+        updateUI();
+    </script>
+</body>
+</html>

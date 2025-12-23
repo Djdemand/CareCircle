@@ -1,0 +1,94 @@
+# CareCircle App Requirements & Design
+Date: 12/20/2025 11:42 PM (US Eastern)
+
+## Objective
+A mobile app for a care team (up to 5 users) to manage and track medication and hydration for a patient.
+
+## Core Features
+1. **Shared Medication Log:** Real-time sync to prevent double-dosing.
+2. **Multi-User Sync:** Up to 5 caregivers logged in simultaneously with unique IDs.
+3. **Prevention Logic:** Lock a dose for a specific time window once logged by any user.
+4. **Course Tracking:** Manage fixed-duration medications (e.g., 7-day antibiotics).
+5. **Hydration Monitoring:** Shared water intake logs and reminders.
+6. **Detailed Audit Trail:** Track who gave which medicine and when.
+
+## Technical Stack Recommendation
+### Option A: Real-Time Team (Cloud)
+- **Frontend:** React Native (Expo).
+- **Backend:** Supabase (Auth, PostgreSQL, Real-time).
+- **Pros:** Caregivers can sync from anywhere and receive push notifications.
+
+### Option B: Local Shared Station (Serverless)
+- **Frontend:** React Native (Expo) - Tablet Optimized.
+- **Storage:** SQLite or AsyncStorage (Local on-device).
+- **Sync:** None (Physical handoff).
+- **Pros:** 100% private, no internet needed, zero cost.
+
+## Data Model (Supabase/Postgres)
+### Table: caregivers
+- id: uuid (pk)
+- name: text
+- email: text (unique)
+
+### Table: medications
+- id: uuid (pk)
+- name: text
+- dosage: text
+- frequency: text (e.g., "Every 8 hours")
+- duration_days: integer
+- start_date: timestamp
+- end_date: timestamp (computed or stored)
+- instructions: text
+
+### Table: med_logs
+- id: uuid (pk)
+- med_id: uuid (fk)
+- caregiver_id: uuid (fk)
+- timestamp: timestamp with time zone
+- dose_number: integer (which dose in the sequence)
+- window_start: timestamp (start of scheduling window)
+- window_end: timestamp (end of scheduling window)
+
+### Table: hydration_logs
+- id: uuid (pk)
+- caregiver_id: uuid (fk)
+- quantity_oz: integer (USA Measurement)
+- timestamp: timestamp with time zone
+
+## Prevention Logic Algorithm
+1. User clicks "Log Dose" for Med X for the "12:00 PM - 4:00 PM" window.
+2. App performs a real-time query to `med_logs`: `SELECT COUNT(*) FROM med_logs WHERE med_id = X AND window_start <= NOW() AND window_end >= NOW()`.
+3. If COUNT > 0, the UI disables the button and shows "Dose already given by [Caregiver Name]".
+4. If COUNT == 0, allow the write. Supabase Row Level Security (RLS) ensures only team members can write.
+
+## App Name Candidates
+1. **CareCircle** (Recommended)
+2. UnityMed
+3. TeamPill
+4. KinshipCare
+5. GuardianPulse
+
+## UI/UX Flow (Mobile Focused)
+1. **Login Screen:** Minimalist login for 5 saved user profiles.
+2. **Main Dashboard:** 
+   - "Next Up" Medication card showing the immediate next dose due.
+  - Circular "Hydration Ring" showing total water intake today (Goal: 64oz).
+  - Team activity ticker at the bottom.
+3. **Medication Schedule:** 
+   - Daily timeline view.
+   - Green checkmarks for completed doses.
+   - Red "Urgent" badges for overdue doses.
+4. **Antibiotic View:** 
+   - Days remaining countdown (e.g., "3 days left").
+   - Notification toggle to remind the whole team if the patient refuses a dose.
+5. **Add Medication:** 
+   - Voice-to-text input for complex instructions.
+   - Duration selector (7, 10, 14 days presets).
+
+## Codebase Structure (Proposed)
+- `/assets`: Images and icons.
+- `/src/components`: Reusable UI elements (WaterRing, MedCard).
+- `/src/screens`: Dashboard, MedList, Login, Settings.
+- `/src/hooks`: `useRealtimeMeds` (Supabase subscription).
+- `/src/utils`: Date formatting, dose window calculations.
+- `/supabase`: Database migrations and security policies.
