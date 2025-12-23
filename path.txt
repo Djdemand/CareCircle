@@ -1,0 +1,12 @@
+
+Name                           Value                                                                            
+----                           -----                                                                            
+Path                           C:\Program Files\PowerShell\7;c:\Users\Admin\AppData\Roaming\Code - Insiders\U...
+
+
+
+Name                           Value                                                                            
+----                           -----                                                                            
+Path                           C:\Program Files\PowerShell\7;c:\Users\Admin\AppData\Roaming\Code - Insiders\U...
+
+
