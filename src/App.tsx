@@ -16,7 +16,7 @@ export type RootStackParamList = {
   Login: undefined;
   Dashboard: undefined;
   MedicationList: undefined;
-  AddMedication: { caregiverId: string };
+  AddMedication: { caregiverId?: string };
   Profile: undefined;
   TeamManagement: undefined;
   HydrationTracker: undefined;
@@ -71,10 +71,11 @@ export default function App() {
                 component={MedicationList}
                 options={{ title: 'Medications' }}
               />
-              <Stack.Screen 
-                name="AddMedication" 
+              <Stack.Screen
+                name="AddMedication"
                 component={AddMedication}
                 options={{ title: 'Add Medication' }}
+                initialParams={{ caregiverId: user?.id || '' }}
               />
               <Stack.Screen 
                 name="Profile" 
