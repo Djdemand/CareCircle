@@ -1,4 +1,36 @@
-import { addHours, startOfHour, isWithinInterval, subHours } from 'date-fns';
+import { addHours, startOfHour, isWithinInterval, subHours, startOfDay } from 'date-fns';
+
+export interface DoseWindow {
+  start: Date;
+  end: Date;
+  label: string;
+}
+
+/**
+ * Calculates all dose windows for a day based on medication frequency.
+ * For example, if frequency is 8 hours, returns 3 windows (Morning, Afternoon, Evening).
+ */
+export const calculateDoseWindows = (frequencyHours: number): DoseWindow[] => {
+  const windows: DoseWindow[] = [];
+  const dayStart = startOfDay(new Date());
+  const dosesPerDay = Math.floor(24 / frequencyHours);
+  
+  const labels = ['Morning', 'Afternoon', 'Evening', 'Night'];
+  
+  for (let i = 0; i < dosesPerDay; i++) {
+    const idealTime = addHours(dayStart, i * frequencyHours);
+    const windowStart = subHours(idealTime, 2);
+    const windowEnd = addHours(idealTime, 2);
+    
+    windows.push({
+      start: windowStart,
+      end: windowEnd,
+      label: labels[i] || `Dose ${i + 1}`
+    });
+  }
+  
+  return windows;
+};
 
 /**
  * Calculates the current administration window for a medication.
@@ -10,7 +42,7 @@ export const getDoseWindow = (frequencyHours: number, baseDate: Date = new Date(
   
   // Logic: Divide the day into chunks based on frequency
   // Simplified for demo: Window is +/- 2 hours from the ideal scheduled time
-  const idealTime = startOfHour(now); 
+  const idealTime = startOfHour(now);
   const windowStart = subHours(idealTime, 2);
   const windowEnd = addHours(idealTime, 2);
 
