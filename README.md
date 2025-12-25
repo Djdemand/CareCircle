@@ -5,17 +5,18 @@
 
 ## 📋 Project Overview
 
-CareCircle is a **mobile-first**, **dark-themed** React Native application designed for clinical and home care teams (up to 5 users) to coordinate medication administration and hydration tracking for a patient. The app provides real-time synchronization across multiple devices, preventing double-dosing and ensuring safe medication management.
+CareCircle is a **multi-platform** application designed for clinical and home care teams (up to 5 users) to coordinate medication administration and hydration tracking for a patient. The app provides real-time synchronization across multiple devices, preventing double-dosing and ensuring safe medication management.
 
 ### Key Features
 
-✅ **Real-Time Team Synchronization** - Live updates across all 5 caregiver devices  
-✅ **Duplicate Dose Prevention** - Deterministic dose window locking to prevent double-dosing  
-✅ **Push Notifications** - Team-wide reminders for medication schedules  
-✅ **Hydration Tracking** - Shared water intake logs with visual progress indicators  
-✅ **Audit Trail** - Complete history of who administered what and when  
-✅ **Dark Theme UI** - Eye-friendly interface optimized for 24/7 care environments  
-✅ **Offline Mode** - Local-only storage option for environments without internet  
+✅ **Real-Time Team Synchronization** - Live updates across all 5 caregiver devices
+✅ **Duplicate Dose Prevention** - Deterministic dose window locking to prevent double-dosing
+✅ **Push Notifications** - Team-wide reminders for medication schedules
+✅ **Hydration Tracking** - Shared water intake logs with visual progress indicators and glass effect
+✅ **Audit Trail** - Complete history of who administered what and when
+✅ **Dark Theme UI** - Eye-friendly interface optimized for 24/7 care environments
+✅ **Web Deployment** - Full-featured web app deployable to Netlify
+✅ **Mobile App** - React Native/Expo mobile application
 
 ---
 
@@ -23,12 +24,21 @@ CareCircle is a **mobile-first**, **dark-themed** React Native application desig
 
 ### Technology Stack
 
+**Mobile App:**
 - **Frontend**: React Native with Expo (v50.0.0)
-- **Backend**: Supabase (PostgreSQL + Real-time subscriptions)
 - **Authentication**: Supabase Auth with Expo SecureStore
 - **Notifications**: Expo Notifications
-- **State Management**: React Hooks
 - **UI Library**: Lucide React Native Icons
+
+**Web App:**
+- **Frontend**: Vanilla JavaScript with Tailwind CSS
+- **Build Tool**: Vite
+- **Deployment**: Netlify
+- **Authentication**: Supabase Auth
+
+**Backend (Shared):**
+- **Database**: Supabase (PostgreSQL + Real-time subscriptions)
+- **State Management**: React Hooks
 - **Date Utilities**: date-fns
 
 ### Project Structure
@@ -43,19 +53,45 @@ CareCircle/
 │   │   ├── useNotifications.ts  # Push notification setup
 │   │   └── useRealtimeMeds.ts   # Real-time medication sync
 │   ├── screens/             # Application screens
-│   │   └── AddMedication.tsx
-│   └── utils/               # Utility functions
-│       ├── doseCalc.ts      # Dose window calculations
-│       ├── localStorage.ts  # Local-only storage mode
-│       ├── supabase.ts      # Supabase client configuration
-│       └── teamService.ts   # Team invitation logic
+│   │   ├── AddMedication.tsx
+│   │   ├── Dashboard.tsx
+│   │   ├── HydrationTracker.tsx
+│   │   ├── Login.tsx
+│   │   ├── MedicationList.tsx
+│   │   ├── Profile.tsx
+│   │   └── TeamManagement.tsx
+│   ├── utils/               # Utility functions
+│   │   ├── doseCalc.ts      # Dose window calculations
+│   │   ├── localStorage.ts  # Local-only storage mode
+│   │   ├── supabase.ts      # Supabase client configuration
+│   │   └── teamService.ts   # Team invitation logic
+│   └── web/                # Web-specific components
+│       ├── App.tsx
+│       ├── index.tsx
+│       ├── screens/
+│       │   ├── Dashboard.tsx
+│       │   └── Login.tsx
+│       ├── hooks/
+│       │   └── useWebNavigation.ts
+│       └── utils/
+│           └── supabase.ts
+├── web/
+│   ├── index.html           # Web app entry point
+│   ├── src/
+│   │   ├── config.js       # Supabase configuration
+│   │   └── main.js         # Main application logic
+│   └── README.md           # Web-specific documentation
 ├── supabase/
-│   └── setup.sql            # Database schema and RLS policies
-├── mockup.html              # Initial UI mockup
-├── simulator.html           # Interactive dark theme simulator
-├── eas.json                 # Expo Application Services config
-├── deployment.md            # Deployment guide
-└── requirements.txt         # Original design requirements
+│   ├── setup.sql            # Database schema and RLS policies
+│   └── migrations/          # Database migrations
+├── dist/                   # Production build output (for Netlify)
+├── mockup.html            # Initial UI mockup
+├── simulator.html          # Interactive dark theme simulator
+├── eas.json               # Expo Application Services config
+├── vite.config.ts         # Vite build configuration
+├── netlify.toml           # Netlify deployment configuration
+├── package.json            # Project dependencies
+└── requirements.txt        # Original design requirements
 
 ```
 
@@ -67,22 +103,23 @@ CareCircle/
 
 - Node.js (v18 or higher)
 - npm or yarn
-- Expo CLI (`npm install -g expo-cli`)
+- Expo CLI (`npm install -g expo-cli`) - for mobile app
 - Supabase account (for online mode)
-- iOS Simulator / Android Emulator or physical device
+- iOS Simulator / Android Emulator or physical device (for mobile)
+- Modern web browser (for web app)
 
 ### Installation
 
 1. **Clone the repository**
-   ```bash
-   git clone <your-repo-url>
-   cd "Medicne App"
-   ```
+    ```bash
+    git clone <your-repo-url>
+    cd "Medicne App"
+    ```
 
 2. **Install dependencies**
-   ```bash
-   npm install
-   ```
+    ```bash
+    npm install
+    ```
 
 3. **Choose your deployment mode:**
 
@@ -91,10 +128,10 @@ CareCircle/
 1. Create a Supabase project at [database.new](https://database.new)
 2. Execute the SQL schema from [`supabase/setup.sql`](supabase/setup.sql) in your Supabase SQL Editor
 3. Create a `.env` file in the project root:
-   ```env
-   EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-   EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-   ```
+    ```env
+    EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+    EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+    ```
 4. Configure email authentication in Supabase Dashboard > Authentication > Providers
 
 #### Option B: Offline Mode (Local Storage)
@@ -103,6 +140,7 @@ No additional setup required! The app uses [`src/utils/localStorage.ts`](src/uti
 
 ### Running the App
 
+**Mobile App:**
 ```bash
 # Start Expo development server
 npm start
@@ -110,7 +148,18 @@ npm start
 # Run on specific platform
 npm run android  # Android
 npm run ios      # iOS
-npm run web      # Web (limited functionality)
+```
+
+**Web App:**
+```bash
+# Development server
+npm run dev:web
+
+# Build for production
+npm run build:web
+
+# Preview production build
+npm run preview:web
 ```
 
 ---
@@ -170,9 +219,33 @@ See [`supabase/setup.sql`](supabase/setup.sql) for complete schema definition.
 
 ---
 
+## 🌐 Web Deployment
+
+The web app is ready for deployment to Netlify with all features working.
+
+### Quick Deploy to Netlify
+
+```bash
+# Build the web app
+npm run build:web
+
+# Deploy the dist folder to Netlify
+# Option 1: Drag and drop the dist folder to https://app.netlify.com/drop
+# Option 2: Connect GitHub repository to Netlify for automatic deployments
+```
+
+### Build Output
+
+The build process creates a `dist/` folder containing:
+- `index.html` - Main HTML file
+- `config.js` - Supabase configuration
+- `main.js` - Complete application logic
+
+For detailed deployment instructions, see [`NETLIFY_DEPLOYMENT_GUIDE.md`](NETLIFY_DEPLOYMENT_GUIDE.md).
+
 ## 📱 Mobile Build & Deployment
 
-The app is configured for deployment using Expo Application Services (EAS).
+The mobile app is configured for deployment using Expo Application Services (EAS).
 
 ### Build for Production
 
@@ -315,9 +388,12 @@ Developed for care teams supporting patient medication management.
 
 For questions or issues, please review the documentation files:
 - [`requirements.txt`](requirements.txt) - Original design requirements
-- [`deployment.md`](deployment.md) - Deployment guide
+- [`deployment.md`](deployment.md) - Mobile deployment guide
+- [`NETLIFY_DEPLOYMENT_GUIDE.md`](NETLIFY_DEPLOYMENT_GUIDE.md) - Web deployment guide
 - [`changes.txt`](changes.txt) - Development history
 
 ---
 
-**Last Updated**: December 24, 2024
+**Last Updated**: December 25, 2025
+**Version**: 1.0.0
+**Status**: ✅ Production Ready

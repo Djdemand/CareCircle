@@ -17,7 +17,7 @@ CREATE TABLE medications (
     frequency_hours INTEGER NOT NULL, -- e.g. 8 for "Every 8 hours"
     duration_days INTEGER NOT NULL,
     start_date TIMESTAMPTZ NOT NULL,
-    end_date TIMESTAMPTZ GENERATED ALWAYS AS (start_date + (duration_days * interval '1 day')) STORED,
+    end_date TIMESTAMPTZ, -- Calculated in app if needed
     instructions TEXT,
     created_by UUID REFERENCES caregivers(id)
 );

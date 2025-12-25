@@ -1,0 +1,226 @@
+# Netlify Deployment Guide for CareCircle
+
+This guide provides step-by-step instructions for deploying the CareCircle Medicine Care Team App to Netlify with proper authentication and environment configuration.
+
+## Prerequisites
+
+- A Netlify account (free tier works)
+- A Supabase project with authentication enabled
+- Git repository with your code (GitHub, GitLab, or Bitbucket)
+
+## Quick Start
+
+### 1. Prepare Your Repository
+
+Ensure your repository contains:
+- `netlify.toml` configuration file
+- `vite.config.ts` build configuration
+- `web/` directory with your web application
+- `.env.production` file (for local testing, not committed to git)
+
+### 2. Configure Environment Variables in Netlify
+
+**CRITICAL STEP**: You must configure these environment variables in Netlify for authentication to work.
+
+#### Option A: Via Netlify Dashboard
+
+1. Go to your Netlify site dashboard
+2. Navigate to **Site Settings** > **Environment Variables**
+3. Add the following variables:
+
+| Variable Name | Value | Description |
+|--------------|-------|-------------|
+| `VITE_SUPABASE_URL` | Your Supabase project URL | e.g., `https://your-project.supabase.co` |
+| `VITE_SUPABASE_ANON_KEY` | Your Supabase anon/public key | Found in Supabase dashboard > Settings > API |
+
+#### Option B: Via Netlify CLI
+
+```bash
+# Install Netlify CLI (if not already installed)
+npm install -g netlify-cli
+
+# Login to Netlify
+netlify login
+
+# Set environment variables
+netlify env:set VITE_SUPABASE_URL "https://your-project.supabase.co"
+netlify env:set VITE_SUPABASE_ANON_KEY "your-anon-key-here"
+```
+
+### 3. Deploy to Netlify
+
+#### Option A: Connect Git Repository (Recommended)
+
+1. In Netlify dashboard, click **"Add new site"** > **"Import an existing project"**
+2. Connect your Git provider (GitHub, GitLab, or Bitbucket)
+3. Select your repository
+4. Configure build settings:
+   - **Build command**: `npm run build:web`
+   - **Publish directory**: `dist`
+   - **Node version**: `18` (already configured in `netlify.toml`)
+5. Click **"Deploy site"**
+
+#### Option B: Deploy via Netlify CLI
+
+```bash
+# Navigate to your project directory
+cd "c:/Users/Admin/Desktop/Programming/Medicne App"
+
+# Initialize Netlify
+netlify init
+
+# Deploy
+netlify deploy --prod
+```
+
+#### Option C: Drag and Drop
+
+1. Run the build command locally:
+   ```bash
+   npm run build:web
+   ```
+2. Navigate to the `dist` folder
+3. Drag and drop the entire `dist` folder to Netlify's deploy page
+
+## Authentication Setup
+
+### Supabase Configuration
+
+1. **Enable Email Authentication**:
+   - Go to your Supabase project dashboard
+   - Navigate to **Authentication** > **Providers**
+   - Enable **Email** provider
+   - Configure email settings (SMTP or use Supabase's default)
+
+2. **Configure Redirect URLs**:
+   - In Supabase dashboard, go to **Authentication** > **URL Configuration**
+   - Add your Netlify site URL to **Site URL**
+   - Add your Netlify site URL to **Redirect URLs**
+   - Example: `https://your-site-name.netlify.app`
+
+3. **Set Up Database Tables**:
+   Run the SQL setup script in `supabase/setup.sql` to create required tables:
+   - `medications` - Store medication information
+   - `caregivers` - Store caregiver profiles
+   - `med_logs` - Track medication doses
+
+### Testing Authentication
+
+After deployment:
+
+1. Visit your Netlify site
+2. Click **"Don't have an account? Sign Up"**
+3. Enter email and password
+4. Check your email for verification link
+5. Verify your account
+6. Sign in with your credentials
+
+## Troubleshooting
+
+### Issue: "Supabase configuration missing" error
+
+**Solution**: Ensure environment variables are set in Netlify:
+- Go to Site Settings > Environment Variables
+- Verify `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are set
+- Redeploy your site after adding variables
+
+### Issue: Build fails
+
+**Solution**: Check the build logs in Netlify:
+- Ensure Node.js version 18 is being used
+- Verify all dependencies are installed
+- Check for any build errors in the logs
+
+### Issue: Authentication not working
+
+**Solution**: 
+1. Verify Supabase credentials are correct
+2. Check Supabase dashboard for authentication logs
+3. Ensure redirect URLs are configured in Supabase
+4. Clear browser cache and cookies
+5. Check browser console for errors
+
+### Issue: White screen after deployment
+
+**Solution**:
+1. Check browser console for JavaScript errors
+2. Verify the build completed successfully
+3. Ensure all assets are properly loaded
+4. Check that Supabase CDN is accessible
+
+## Environment Variables Reference
+
+### Development (Local)
+
+Create a `.env` file in your project root:
+
+```env
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key-here
+```
+
+### Production (Netlify)
+
+Set these in Netlify dashboard under Site Settings > Environment Variables:
+
+```env
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key-here
+```
+
+**Important**: Never commit `.env` files to version control. They are already in `.gitignore`.
+
+## Build Configuration
+
+The project uses Vite for building:
+
+- **Entry point**: `web/index.html`
+- **Source directory**: `web/src/`
+- **Output directory**: `dist/`
+- **Build command**: `npm run build:web`
+- **Dev server**: `npm run dev:web`
+
+## Security Best Practices
+
+1. **Never commit sensitive credentials** to version control
+2. **Use environment variables** for all configuration
+3. **Rotate your Supabase keys** periodically
+4. **Enable Row Level Security (RLS)** in Supabase
+5. **Use HTTPS** (Netlify provides this automatically)
+6. **Monitor authentication logs** in Supabase dashboard
+
+## Performance Optimization
+
+The `netlify.toml` file includes caching headers for:
+
+- `/assets/*` - Static assets (images, fonts)
+- `/*.js` - JavaScript files
+- `/*.css` - CSS files
+
+These are cached for 1 year (31536000 seconds) to improve load times.
+
+## Continuous Deployment
+
+With Git integration, Netlify will automatically:
+
+1. Detect new commits to your repository
+2. Trigger a new build
+3. Deploy the updated site
+4. Provide a deploy preview for pull requests
+
+## Support
+
+For issues or questions:
+
+1. Check the [Netlify documentation](https://docs.netlify.com/)
+2. Check the [Supabase documentation](https://supabase.com/docs)
+3. Review the browser console for errors
+4. Check Netlify build logs
+5. Check Supabase authentication logs
+
+## Additional Resources
+
+- [Netlify Build Configuration](https://docs.netlify.com/configure-builds/file-based-configuration/)
+- [Vite Environment Variables](https://vitejs.dev/guide/env-and-mode.html)
+- [Supabase Authentication](https://supabase.com/docs/guides/auth)
+- [Supabase JavaScript Client](https://supabase.com/docs/reference/javascript)

@@ -7,7 +7,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "build:web": "vite build",
+    "build:web": "vite build --mode production && copy web\\src\\config.js dist\\config.js && copy web\\src\\main.js dist\\main.js",
     "preview:web": "vite preview",
     "dev:web": "vite"
   },

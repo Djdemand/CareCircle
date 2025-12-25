@@ -120,13 +120,21 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzd
 ## 🐛 Troubleshooting
 
 ### Build Errors:
-- Clear cache: `rm -rf node_modules .expo && npm install`
-- Try: `npx expo start --web` to test locally first
+- Clear cache: `rm -rf node_modules && npm install`
+- Try: `npm run dev:web` to test locally first
+- Check Node.js version (should be 18+)
 
 ### Deployment Issues:
 - Check Netlify build logs for specific errors
-- Ensure all environment variables are set correctly
-- Verify Supabase URL and keys are correct
+- Ensure you deployed the `dist/` folder, not `web/` folder
+- Verify Supabase URL and keys are correct in `web/src/config.js`
+- Rebuild: `npm run build:web`
+
+### Runtime Errors:
+- Check browser console for JavaScript errors
+- Verify Supabase CDN is loading
+- Ensure database tables are created in Supabase
+- Test with demo credentials first
 
 ## 📱Alternative: Keep as Mobile-Only
 
@@ -147,9 +155,10 @@ Given that this is a **care team coordination app**, you might want to keep it m
 
 ## 📚 Additional Resources
 
-- [Expo Web Documentation](https://docs.expo.dev/workflow/web/)
+- [Vite Documentation](https://vitejs.dev/)
 - [Netlify Deployment Guide](https://docs.netlify.com/)
 - [Supabase JavaScript Client](https://supabase.com/docs/reference/javascript/installing)
+- [NETLIFY_DEPLOYMENT_GUIDE.md](NETLIFY_DEPLOYMENT_GUIDE.md) - Detailed deployment guide
 
 ## ✅ Next Steps
 
