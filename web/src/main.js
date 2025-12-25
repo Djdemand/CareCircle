@@ -34,6 +34,7 @@ let isSignupMode = false;
 let showMedHistory = {}; // Track which medication history is expanded
 let isAdmin = false; // Track if current user is administrator
 const DAILY_HYDRATION_GOAL = 64; // 64oz (approx 2 liters)
+let lastHydrationProgress = 0; // Track last hydration progress for animation
 
 // Initialize app
 async function init() {
@@ -632,38 +633,45 @@ function renderDashboard() {
 
           <!-- Right Column: Hydration & Team -->
           <div class="space-y-8">
-            <!-- Hydration Tracker (Mockup Style) -->
-            <div class="bg-blue-600 rounded-3xl p-5 text-white shadow-lg relative overflow-hidden">
-              <div class="relative z-10 flex justify-between items-center">
-                <div>
-                  <h2 class="text-lg font-semibold">Daily Hydration</h2>
-                  <p class="text-blue-100 text-sm">Goal: ${DAILY_HYDRATION_GOAL}oz</p>
-                  <div class="mt-4 flex items-baseline">
-                    <span class="text-3xl font-bold">${hydrationTotal}</span>
-                    <span class="text-sm ml-1 text-blue-100">oz</span>
+            <!-- Hydration Tracker (New Design) -->
+            <div class="bg-slate-800 rounded-3xl p-6 shadow-lg border border-slate-700">
+              <div class="flex gap-6">
+                <!-- Cup Visualization -->
+                <div class="relative w-24 h-32 border-4 border-slate-600 border-t-0 rounded-b-3xl overflow-hidden bg-slate-900/50 shrink-0">
+                  <!-- Liquid -->
+                  <div id="hydration-liquid" class="absolute bottom-0 left-0 right-0 bg-blue-500 transition-all duration-700 ease-in-out flex items-end" style="height: ${lastHydrationProgress}%">
+                    <div class="w-full h-2 bg-blue-400/30"></div>
                   </div>
+                  <!-- Glass Reflection -->
+                  <div class="absolute inset-0 bg-gradient-to-r from-white/5 to-transparent pointer-events-none"></div>
                 </div>
-                <!-- Progress Circle with Liquid Effect (Exact Mockup Style) -->
-                <div class="w-20 h-20 rounded-full border-4 border-blue-400 flex items-center justify-center relative bg-blue-800/30 overflow-hidden">
-                  <div class="absolute inset-0 border-4 border-white rounded-full transition-all duration-500" style="clip-path: inset(0 0 ${hydrationProgress}% 0);"></div>
-                  <div class="relative z-10 text-xl">💧</div>
+
+                <!-- Info & Controls -->
+                <div class="flex-1 flex flex-col justify-between">
+                  <div>
+                    <h2 class="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Hydration</h2>
+                    <div class="flex items-baseline gap-1">
+                      <span class="text-4xl font-black text-white">${hydrationTotal}</span>
+                      <span class="text-slate-400 font-bold text-lg">oz</span>
+                    </div>
+                    <p class="text-blue-500 text-xs font-bold mt-1">GOAL: ${DAILY_HYDRATION_GOAL}OZ</p>
+                  </div>
+
+                  <div class="flex gap-2 mt-2">
+                    <button class="add-water-btn flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl text-sm transition-colors shadow-lg shadow-blue-900/20" data-amount="8">
+                      + 8oz
+                    </button>
+                    <button class="add-water-btn flex-1 bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 rounded-xl text-sm transition-colors border border-slate-600" data-amount="16">
+                      + 16oz
+                    </button>
+                  </div>
                 </div>
               </div>
               
-              <!-- Quick Add Buttons -->
-              <div class="grid grid-cols-2 gap-2 mt-4">
-                <button class="add-water-btn bg-white text-blue-600 font-bold py-2 rounded-xl text-sm shadow-sm hover:bg-blue-50 transition-colors" data-amount="8">
-                  + 8oz
-                </button>
-                <button class="add-water-btn bg-white/20 text-white font-bold py-2 rounded-xl text-sm hover:bg-white/30 transition-colors" data-amount="16">
-                  + 16oz
-                </button>
-              </div>
-
               <!-- Recent Logs -->
-              <div class="mt-4 space-y-1">
+              <div class="mt-4 space-y-1 pt-4 border-t border-slate-700/50">
                 ${hydrationLogs.slice(0, 3).map(log => `
-                  <div class="flex justify-between items-center text-xs text-blue-100">
+                  <div class="flex justify-between items-center text-xs text-slate-400">
                     <span>${log.amount_oz}oz</span>
                     <div class="flex items-center gap-2">
                       <span>${new Date(log.logged_at).toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'})}</span>
@@ -725,6 +733,15 @@ Supabase: ${SUPABASE_URL}
     </div>
   `;
   
+  // Animate hydration liquid
+  setTimeout(() => {
+    const liquid = document.getElementById('hydration-liquid');
+    if (liquid) {
+      liquid.style.height = `${hydrationProgress}%`;
+    }
+  }, 50);
+  lastHydrationProgress = hydrationProgress;
+
   // Attach event listeners
   document.getElementById('logout-btn').addEventListener('click', handleLogout);
   document.getElementById('add-med-btn').addEventListener('click', handleAddMedication);
