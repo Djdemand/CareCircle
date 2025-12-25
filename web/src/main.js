@@ -31,6 +31,8 @@ let medLogs = [];
 let caregivers = [];
 let hydrationLogs = [];
 let isSignupMode = false;
+let showMedHistory = {}; // Track which medication history is expanded
+let isAdmin = false; // Track if current user is administrator
 const DAILY_HYDRATION_GOAL = 64; // 64oz (approx 2 liters)
 
 // Initialize app
@@ -269,19 +271,25 @@ async function loadDashboard() {
   
   try {
     // Ensure caregiver profile exists
-    const { data: profile } = await supabase.from('caregivers').select('id').eq('id', currentUser.id).single();
+    const { data: profile } = await supabase.from('caregivers').select('*').eq('id', currentUser.id).single();
     
     if (!profile) {
       console.log('CareCircle: Creating missing caregiver profile...');
       const { error: createError } = await supabase.from('caregivers').insert({
         id: currentUser.id,
         email: currentUser.email,
-        name: currentUser.email.split('@')[0]
+        name: currentUser.email.split('@')[0],
+        is_admin: true // First user is administrator
       });
       
       if (createError) {
         console.error('CareCircle: Failed to create profile:', createError);
       }
+      
+      isAdmin = true;
+    } else {
+      // Check if user is administrator
+      isAdmin = profile.is_admin || false;
     }
 
     await Promise.all([
@@ -425,7 +433,9 @@ async function handleAddWater(amount) {
     });
 
     if (error) throw error;
-    // Realtime subscription will handle reload
+    // Force immediate reload to show animation
+    await loadHydrationLogs();
+    renderDashboard();
   } catch (err) {
     alert('Error adding water: ' + err.message);
   }
@@ -438,6 +448,9 @@ async function handleDeleteHydration(id) {
   try {
     const { error } = await supabase.from('hydration_logs').delete().eq('id', id);
     if (error) throw error;
+    // Force immediate reload to show animation
+    await loadHydrationLogs();
+    renderDashboard();
   } catch (err) {
     alert('Error deleting entry: ' + err.message);
   }
@@ -546,6 +559,10 @@ function renderDashboard() {
                     }
                   }
 
+                  // Get all logs for this medication
+                  const medHistory = medLogs.filter(log => log.med_id === med.id);
+                  const isExpanded = showMedHistory[med.id] || false;
+
                   return `
                   <div class="bg-slate-800 p-6 rounded-2xl mb-4 border border-slate-700 ${isTaken ? 'opacity-75' : ''}">
                     <div class="flex justify-between items-start">
@@ -554,19 +571,59 @@ function renderDashboard() {
                         <p class="text-slate-400 mt-1">${med.dosage || 'Dosage not specified'} • Every ${med.frequency_hours || '?'}h</p>
                         <p class="text-slate-500 text-sm mt-1">${med.instructions || 'No instructions'}</p>
                       </div>
-                      ${isTaken ? '<span class="bg-green-500/20 text-green-500 text-xs font-bold px-2 py-1 rounded-full">TAKEN</span>' : ''}
+                      <div class="flex gap-2">
+                        ${isTaken ? '<span class="bg-green-500/20 text-green-500 text-xs font-bold px-2 py-1 rounded-full">TAKEN</span>' : ''}
+                        ${isAdmin ? `
+                          <button class="edit-med-btn text-blue-400 hover:text-blue-300 text-xs font-semibold" data-med-id="${med.id}">
+                            Edit
+                          </button>
+                          <button class="delete-med-btn text-red-400 hover:text-red-300 text-xs font-semibold" data-med-id="${med.id}">
+                            Delete
+                          </button>
+                        ` : ''}
+                      </div>
                     </div>
                     
                     ${isTaken ? `
                       <div class="mt-4 p-3 bg-slate-900/50 rounded-xl border border-slate-700/50 text-center">
-                        <p class="text-slate-400 text-sm">Next dose due at</p>
-                        <p class="text-slate-200 font-bold">${nextDue.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'})}</p>
+                        <p class="text-slate-400 text-sm">Last dose taken at</p>
+                        <p class="text-slate-200 font-bold">${lastLog.administered_at ? new Date(lastLog.administered_at).toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'}) : 'N/A'}</p>
                       </div>
                     ` : `
                       <button class="mark-taken-btn w-full mt-4 bg-green-500/10 text-green-500 hover:bg-green-500/20 font-bold py-3 rounded-xl transition-colors" data-med-id="${med.id}">
                         ✓ Mark as Taken
                       </button>
                     `}
+
+                    <!-- Collapsible History Section -->
+                    <div class="mt-4">
+                      <button class="toggle-history-btn w-full text-left text-slate-400 text-sm hover:text-slate-300 py-2 px-3 rounded-lg bg-slate-900/50 hover:bg-slate-900/70 transition-colors" data-med-id="${med.id}">
+                        <span class="flex items-center gap-2">
+                          <span>${isExpanded ? '▼' : '▶'}</span>
+                          <span>History (${medHistory.length} doses)</span>
+                        </span>
+                      </button>
+                      
+                      ${isExpanded ? `
+                        <div class="mt-2 bg-slate-900/30 rounded-xl border border-slate-700/50 p-3">
+                          ${medHistory.length === 0 ?
+                            '<p class="text-slate-500 text-sm text-center">No doses logged yet</p>' :
+                            medHistory.map(log => `
+                              <div class="flex justify-between items-center py-2 border-b border-slate-700/50 last:border-0">
+                                <div class="flex items-center gap-2">
+                                  <span class="text-slate-400 text-xs">${new Date(log.administered_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span>
+                                  <span class="text-slate-300 text-sm font-semibold">${new Date(log.administered_at).toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'})}</span>
+                                </div>
+                                <div class="text-right">
+                                  <span class="text-slate-500 text-xs">by ${caregivers.find(cg => cg.id === log.caregiver_id)?.name || 'Unknown'}</span>
+                                  ${log.notes ? `<span class="text-slate-400 text-xs ml-2">"${log.notes}"</span>` : ''}
+                                </div>
+                              </div>
+                            `).join('')
+                          }
+                        </div>
+                      ` : ''}
+                    </div>
                   </div>
                 `}).join('')
               }
@@ -586,9 +643,9 @@ function renderDashboard() {
                     <span class="text-sm ml-1 text-blue-100">oz</span>
                   </div>
                 </div>
-                <!-- Progress Circle with Liquid Effect -->
+                <!-- Progress Circle with Liquid Effect (Exact Mockup Style) -->
                 <div class="w-20 h-20 rounded-full border-4 border-blue-400 flex items-center justify-center relative bg-blue-800/30 overflow-hidden">
-                  <div class="absolute bottom-0 left-0 right-0 bg-blue-300 transition-all duration-500" style="height: ${hydrationProgress}%"></div>
+                  <div class="absolute inset-0 border-4 border-white rounded-full transition-all duration-500" style="clip-path: inset(0 0 ${hydrationProgress}% 0);"></div>
                   <div class="relative z-10 text-xl">💧</div>
                 </div>
               </div>
@@ -678,6 +735,21 @@ Supabase: ${SUPABASE_URL}
     btn.addEventListener('click', () => handleMarkTaken(btn.dataset.medId));
   });
 
+  // Edit Medication buttons
+  document.querySelectorAll('.edit-med-btn').forEach(btn => {
+    btn.addEventListener('click', () => handleEditMedication(btn.dataset.medId));
+  });
+
+  // Delete Medication buttons
+  document.querySelectorAll('.delete-med-btn').forEach(btn => {
+    btn.addEventListener('click', () => handleDeleteMedication(btn.dataset.medId));
+  });
+
+  // Toggle History buttons
+  document.querySelectorAll('.toggle-history-btn').forEach(btn => {
+    btn.addEventListener('click', () => toggleMedHistory(btn.dataset.medId));
+  });
+
   // Add Water buttons
   document.querySelectorAll('.add-water-btn').forEach(btn => {
     btn.addEventListener('click', () => handleAddWater(parseInt(btn.dataset.amount)));
@@ -696,6 +768,12 @@ Supabase: ${SUPABASE_URL}
 
 // Handle Add Medication
 async function handleAddMedication() {
+  // Check if user is administrator
+  if (!isAdmin) {
+    alert('Only administrators can add medications. Please contact your team administrator.');
+    return;
+  }
+
   const name = prompt('Medication name:');
   if (!name) return;
   
@@ -732,6 +810,71 @@ async function handleAddMedication() {
   }
 }
 
+// Handle Delete Medication
+async function handleDeleteMedication(medId) {
+  // Check if user is administrator
+  if (!isAdmin) {
+    alert('Only administrators can delete medications. Please contact your team administrator.');
+    return;
+  }
+
+  if (!confirm('Are you sure you want to delete this medication?')) return;
+  
+  try {
+    const { error } = await supabase.from('medications').delete().eq('id', medId);
+    if (error) throw error;
+    
+    await loadMedications();
+    renderDashboard();
+  } catch (err) {
+    alert('Error deleting medication: ' + err.message);
+  }
+}
+
+// Handle Edit Medication
+async function handleEditMedication(medId) {
+  // Check if user is administrator
+  if (!isAdmin) {
+    alert('Only administrators can edit medications. Please contact your team administrator.');
+    return;
+  }
+
+  const med = medications.find(m => m.id === medId);
+  if (!med) return;
+
+  const name = prompt('Medication name:', med.name);
+  if (!name) return;
+  
+  const dosage = prompt('Dosage (e.g., 500mg):', med.dosage);
+  if (!dosage) return;
+  
+  const frequency = prompt('Frequency in hours (e.g., 8 for every 8 hours):', med.frequency_hours);
+  if (!frequency) return;
+  
+  const instructions = prompt('Instructions (optional):', med.instructions) || '';
+  
+  console.log('CareCircle: Editing medication:', { medId, name, dosage, frequency, instructions });
+  
+  try {
+    const { error } = await supabase.from('medications').update({
+      name,
+      dosage,
+      frequency_hours: parseInt(frequency),
+      instructions
+    }).eq('id', medId);
+    
+    if (error) {
+      alert('Failed to update medication: ' + error.message);
+      return;
+    }
+    
+    await loadMedications();
+    renderDashboard();
+  } catch (err) {
+    alert('Error updating medication: ' + err.message);
+  }
+}
+
 // Handle Mark as Taken
 async function handleMarkTaken(medId) {
   console.log('CareCircle: Marking medication as taken:', medId);
@@ -741,11 +884,14 @@ async function handleMarkTaken(medId) {
     const windowStart = new Date(now.getTime() - 4 * 60 * 60 * 1000); // 4 hours before
     const windowEnd = new Date(now.getTime() + 4 * 60 * 60 * 1000); // 4 hours after
     
+    const notes = prompt('Add notes (optional):') || '';
+    
     const { error } = await supabase.from('med_logs').insert({
       med_id: medId,
       caregiver_id: currentUser?.id,
       window_start: windowStart.toISOString(),
-      window_end: windowEnd.toISOString()
+      window_end: windowEnd.toISOString(),
+      notes: notes
     });
     
     if (error) {
@@ -753,11 +899,17 @@ async function handleMarkTaken(medId) {
       return;
     }
     
-    // Success - UI will update via realtime or reload
+    // Success - Force immediate reload
     await loadDashboard();
   } catch (err) {
     alert('Error logging dose: ' + err.message);
   }
+}
+
+// Toggle medication history visibility
+function toggleMedHistory(medId) {
+  showMedHistory[medId] = !showMedHistory[medId];
+  renderDashboard();
 }
 
 // Handle Logout
