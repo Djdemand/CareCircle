@@ -768,11 +768,6 @@ function renderDashboard() {
                     <div class="flex items-center gap-2">
                       ${cg.id !== currentUser.id ? `
                         ${isAdmin ? `
-                          <button class="transfer-admin-btn text-amber-400 hover:text-amber-300 p-1" title="Make Admin" data-id="${cg.id}">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
-                            </svg>
-                          </button>
                           <button class="remove-member-btn text-red-400 hover:text-red-300 p-1" title="Remove" data-id="${cg.id}">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                               <polyline points="3 6 5 6 21 6"></polyline>
@@ -786,6 +781,31 @@ function renderDashboard() {
                 `).join('')}
               </div>
             </div>
+
+            <!-- Admin Controls -->
+            ${isAdmin ? `
+              <div class="bg-slate-800 p-6 rounded-2xl border border-amber-500/30 mt-8">
+                <h2 class="text-xl font-bold text-amber-500 mb-4">Admin Controls</h2>
+                
+                <div class="space-y-4">
+                  <div>
+                    <label class="block text-slate-400 text-sm mb-2">Transfer Admin Rights</label>
+                    <div class="flex gap-2">
+                      <select id="admin-transfer-select" class="flex-1 bg-slate-900 text-slate-200 rounded-xl px-4 py-3 border border-slate-700 outline-none focus:border-amber-500">
+                        <option value="">Select a team member...</option>
+                        ${caregivers.filter(c => c.id !== currentUser.id).map(c => `
+                          <option value="${c.id}">${c.name || c.email}</option>
+                        `).join('')}
+                      </select>
+                      <button id="transfer-admin-btn" class="bg-amber-500/20 text-amber-500 font-bold px-6 py-3 rounded-xl hover:bg-amber-500/30 transition-colors">
+                        Transfer
+                      </button>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-2">Warning: You will lose administrator privileges after transferring.</p>
+                  </div>
+                </div>
+              </div>
+            ` : ''}
           </div>
         </div>
         
@@ -859,10 +879,18 @@ Supabase: ${SUPABASE_URL}
     btn.addEventListener('click', () => handleRemoveCaregiver(btn.dataset.id));
   });
 
-  // Transfer Admin buttons
-  document.querySelectorAll('.transfer-admin-btn').forEach(btn => {
-    btn.addEventListener('click', () => handleTransferAdmin(btn.dataset.id));
-  });
+  // Transfer Admin button (Dropdown)
+  const transferBtn = document.getElementById('transfer-admin-btn');
+  if (transferBtn) {
+    transferBtn.addEventListener('click', () => {
+      const select = document.getElementById('admin-transfer-select');
+      if (select && select.value) {
+        handleTransferAdmin(select.value);
+      } else {
+        alert('Please select a team member to transfer admin rights to.');
+      }
+    });
+  }
 }
 
 // Handle Transfer Admin
@@ -910,6 +938,18 @@ async function handleAddMedication() {
   console.log('CareCircle: Adding medication:', { name, dosage, frequency, instructions });
   
   try {
+    // Ensure profile exists to prevent foreign key error
+    const { data: profile } = await supabase.from('caregivers').select('id').eq('id', currentUser.id).single();
+    if (!profile) {
+      console.log('CareCircle: Re-creating missing profile before adding med...');
+      await supabase.from('caregivers').insert({
+        id: currentUser.id,
+        email: currentUser.email,
+        name: currentUser.email.split('@')[0],
+        is_admin: isAdmin
+      });
+    }
+
     const { error } = await supabase.from('medications').insert({
       name,
       dosage,
