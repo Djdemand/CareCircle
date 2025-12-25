@@ -276,21 +276,36 @@ async function loadDashboard() {
     
     if (!profile) {
       console.log('CareCircle: Creating missing caregiver profile...');
+      
+      // Check if any admin exists
+      const { count } = await supabase.from('caregivers').select('*', { count: 'exact', head: true }).eq('is_admin', true);
+      const shouldBeAdmin = count === 0;
+
       const { error: createError } = await supabase.from('caregivers').insert({
         id: currentUser.id,
         email: currentUser.email,
         name: currentUser.email.split('@')[0],
-        is_admin: true // First user is administrator
+        is_admin: shouldBeAdmin
       });
       
       if (createError) {
         console.error('CareCircle: Failed to create profile:', createError);
       }
       
-      isAdmin = true;
+      isAdmin = shouldBeAdmin;
     } else {
       // Check if user is administrator
       isAdmin = profile.is_admin || false;
+      
+      // Fallback: If no admin exists in the system, make this user admin
+      if (!isAdmin) {
+        const { count } = await supabase.from('caregivers').select('*', { count: 'exact', head: true }).eq('is_admin', true);
+        if (count === 0) {
+          console.log('CareCircle: No admin found, promoting current user...');
+          await supabase.from('caregivers').update({ is_admin: true }).eq('id', currentUser.id);
+          isAdmin = true;
+        }
+      }
     }
 
     await Promise.all([
@@ -454,6 +469,46 @@ async function handleDeleteHydration(id) {
     renderDashboard();
   } catch (err) {
     alert('Error deleting entry: ' + err.message);
+  }
+}
+
+// Handle Reset Hydration
+async function handleResetHydration() {
+  if (!confirm('Are you sure you want to reset today\'s hydration logs?')) return;
+  
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    // Delete all logs for today
+    const { error } = await supabase.from('hydration_logs')
+      .delete()
+      .gte('logged_at', today);
+      
+    if (error) throw error;
+    
+    await loadHydrationLogs();
+    renderDashboard();
+  } catch (err) {
+    alert('Error resetting hydration: ' + err.message);
+  }
+}
+
+// Handle Reset Hydration
+async function handleResetHydration() {
+  if (!confirm('Are you sure you want to reset today\'s hydration logs?')) return;
+  
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    // Delete all logs for today
+    const { error } = await supabase.from('hydration_logs')
+      .delete()
+      .gte('logged_at', today);
+      
+    if (error) throw error;
+    
+    await loadHydrationLogs();
+    renderDashboard();
+  } catch (err) {
+    alert('Error resetting hydration: ' + err.message);
   }
 }
 
@@ -787,6 +842,12 @@ Supabase: ${SUPABASE_URL}
   document.querySelectorAll('.add-water-btn').forEach(btn => {
     btn.addEventListener('click', () => handleAddWater(parseInt(btn.dataset.amount)));
   });
+
+  // Reset Water button
+  const resetBtn = document.getElementById('reset-water-btn');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', handleResetHydration);
+  }
 
   // Delete Water buttons
   document.querySelectorAll('.delete-water-btn').forEach(btn => {

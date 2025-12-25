@@ -36,6 +36,11 @@ This guide provides step-by-step instructions for deploying the CareCircle Medic
    - Drag the `dist` folder to the deploy area
    - Your app will be live immediately
 
+**Exact path to drag:**
+```
+c:/Users/Admin/Desktop/Programming/Medicne App/dist
+```
+
 **IMPORTANT**: Always deploy the `dist/` folder, not the `web/` folder!
 
 ### Method 2: Git Integration (Recommended for Production)
