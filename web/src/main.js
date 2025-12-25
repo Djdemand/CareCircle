@@ -505,10 +505,13 @@ function renderDashboard() {
         <!-- Header -->
         <div class="flex justify-between items-center mb-8">
           <div>
-            <h1 class="text-2xl font-black text-slate-100">Hello, ${currentUser?.email?.split('@')[0] || 'User'}</h1>
+            <h1 class="text-2xl font-black text-slate-100 flex items-center gap-2">
+              Hello, ${currentUser?.email?.split('@')[0] || 'User'}
+              ${isAdmin ? '<span class="bg-amber-500/20 text-amber-500 text-xs font-bold px-2 py-1 rounded border border-amber-500/50">ADMIN</span>' : ''}
+            </h1>
             <p class="text-slate-400">${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
           </div>
-          <button id="logout-btn" class="bg-red-500/10 text-red-500 px-4 py-2 rounded-lg font-semibold">
+          <button id="logout-btn" class="bg-red-500/10 text-red-500 px-4 py-2 rounded-lg font-semibold hover:bg-red-500/20 transition-colors">
             Logout
           </button>
         </div>
@@ -691,26 +694,39 @@ function renderDashboard() {
                 </button>
               </div>
               
-              <div class="space-y-3">
+              <div class="space-y-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
                 ${caregivers.map(cg => `
-                  <div class="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl">
+                  <div class="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl mb-2">
                     <div class="flex items-center gap-3">
-                      <div class="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center">
+                      <div class="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center relative">
                         <span class="text-blue-500 font-bold text-sm">${cg.name?.charAt(0).toUpperCase() || '?'}</span>
+                        ${cg.is_admin ? '<div class="absolute -top-1 -right-1 w-3 h-3 bg-amber-500 rounded-full border-2 border-slate-900" title="Admin"></div>' : ''}
                       </div>
                       <div>
-                        <p class="text-slate-200 text-sm font-semibold">${cg.name || 'Unnamed'}</p>
+                        <p class="text-slate-200 text-sm font-semibold flex items-center gap-2">
+                          ${cg.name || 'Unnamed'}
+                          ${cg.is_admin ? '<span class="text-[10px] text-amber-500 font-bold bg-amber-500/10 px-1 rounded">ADMIN</span>' : ''}
+                        </p>
                         <p class="text-slate-500 text-xs">${cg.email}</p>
                       </div>
                     </div>
-                    ${cg.id !== currentUser.id ? `
-                      <button class="remove-member-btn text-red-400 hover:text-red-300 p-1" data-id="${cg.id}">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <polyline points="3 6 5 6 21 6"></polyline>
-                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                        </svg>
-                      </button>
-                    ` : '<span class="text-xs text-amber-500 font-bold px-2 py-1 bg-amber-500/10 rounded">YOU</span>'}
+                    <div class="flex items-center gap-2">
+                      ${cg.id !== currentUser.id ? `
+                        ${isAdmin ? `
+                          <button class="transfer-admin-btn text-amber-400 hover:text-amber-300 p-1" title="Make Admin" data-id="${cg.id}">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
+                            </svg>
+                          </button>
+                          <button class="remove-member-btn text-red-400 hover:text-red-300 p-1" title="Remove" data-id="${cg.id}">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                              <polyline points="3 6 5 6 21 6"></polyline>
+                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
+                          </button>
+                        ` : ''}
+                      ` : '<span class="text-xs text-blue-400 font-bold px-2 py-1 bg-blue-500/10 rounded">YOU</span>'}
+                    </div>
                   </div>
                 `).join('')}
               </div>
@@ -781,6 +797,34 @@ Supabase: ${SUPABASE_URL}
   document.querySelectorAll('.remove-member-btn').forEach(btn => {
     btn.addEventListener('click', () => handleRemoveCaregiver(btn.dataset.id));
   });
+
+  // Transfer Admin buttons
+  document.querySelectorAll('.transfer-admin-btn').forEach(btn => {
+    btn.addEventListener('click', () => handleTransferAdmin(btn.dataset.id));
+  });
+}
+
+// Handle Transfer Admin
+async function handleTransferAdmin(newAdminId) {
+  if (!confirm('Are you sure you want to transfer admin rights? You will lose your administrator privileges.')) return;
+
+  try {
+    // 1. Make new user admin
+    const { error: promoteError } = await supabase.from('caregivers').update({ is_admin: true }).eq('id', newAdminId);
+    if (promoteError) throw promoteError;
+
+    // 2. Remove admin from current user
+    const { error: demoteError } = await supabase.from('caregivers').update({ is_admin: false }).eq('id', currentUser.id);
+    if (demoteError) throw demoteError;
+
+    // 3. Update local state
+    isAdmin = false;
+    await loadCaregivers();
+    renderDashboard();
+    alert('Admin rights transferred successfully.');
+  } catch (err) {
+    alert('Error transferring admin rights: ' + err.message);
+  }
 }
 
 // Handle Add Medication
