@@ -114,6 +114,12 @@ function showLogin() {
               <path d="M7 11V7a5 5 0 0 1 10 0v4" />
             </svg>
             <input type="password" id="password" placeholder="Password" class="flex-1 bg-transparent py-4 text-slate-100 outline-none">
+            <button id="toggle-password" class="text-slate-400 hover:text-slate-200 focus:outline-none">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+            </button>
           </div>
           
           <button id="auth-action-btn" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 rounded-2xl transition-colors">
@@ -136,6 +142,31 @@ function showLogin() {
   // Attach event listeners
   document.getElementById('auth-action-btn').addEventListener('click', isSignupMode ? handleSignUp : handleLogin);
   document.getElementById('toggle-auth-btn').addEventListener('click', toggleAuthMode);
+  
+  // Password toggle
+  const passwordInput = document.getElementById('password');
+  const toggleBtn = document.getElementById('toggle-password');
+  toggleBtn.addEventListener('click', () => {
+    const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+    passwordInput.setAttribute('type', type);
+    // Update icon
+    toggleBtn.innerHTML = type === 'password' ?
+      `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+        <circle cx="12" cy="12" r="3"></circle>
+      </svg>` :
+      `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+        <line x1="1" y1="1" x2="23" y2="23"></line>
+      </svg>`;
+  });
+
+  // Enter key to submit
+  passwordInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      isSignupMode ? handleSignUp() : handleLogin();
+    }
+  });
 }
 
 function toggleAuthMode() {
@@ -1404,43 +1435,90 @@ async function handleSendMessage() {
 
 // Handle Log Past Dose
 async function handleLogPastDose(medId) {
-  const dateStr = prompt('Enter date and time (YYYY-MM-DD HH:MM):', new Date().toISOString().slice(0, 16).replace('T', ' '));
-  if (!dateStr) return;
-  
-  const date = new Date(dateStr);
-  if (isNaN(date.getTime())) {
-    alert('Invalid date format');
-    return;
+  // Create modal if it doesn't exist
+  let modal = document.getElementById('log-past-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'log-past-modal';
+    modal.className = 'fixed inset-0 bg-black/80 flex items-center justify-center z-50';
+    modal.innerHTML = `
+      <div class="bg-slate-800 p-6 rounded-2xl w-full max-w-md border border-slate-700">
+        <h3 class="text-xl font-bold text-slate-100 mb-4">Log Past Dose</h3>
+        <p class="text-slate-400 text-sm mb-4">Select the date and time when the medication was administered.</p>
+        
+        <input type="datetime-local" id="past-dose-date" class="w-full bg-slate-900 text-slate-200 rounded-xl px-4 py-3 border border-slate-700 outline-none focus:border-blue-500 mb-6">
+        
+        <div class="flex gap-3">
+          <button id="cancel-past-dose" class="flex-1 bg-slate-700 text-slate-300 font-bold py-3 rounded-xl hover:bg-slate-600 transition-colors">
+            Cancel
+          </button>
+          <button id="confirm-past-dose" class="flex-1 bg-blue-500 text-white font-bold py-3 rounded-xl hover:bg-blue-600 transition-colors">
+            Log Dose
+          </button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
   }
+
+  // Set default time to now
+  const dateInput = document.getElementById('past-dose-date');
+  const now = new Date();
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  dateInput.value = now.toISOString().slice(0, 16);
   
-  try {
-    // Find caregiver ID
-    const { data: caregiver } = await supabase
-      .from('caregivers')
-      .select('id')
-      .eq('email', currentUser.email)
-      .single();
-      
-    if (!caregiver) return;
+  modal.classList.remove('hidden');
 
-    // Calculate window based on the past date
-    const windowStart = new Date(date.getTime() - 4 * 60 * 60 * 1000);
-    const windowEnd = new Date(date.getTime() + 4 * 60 * 60 * 1000);
+  // Handle actions
+  return new Promise((resolve) => {
+    const close = () => {
+      modal.classList.add('hidden');
+      resolve();
+    };
 
-    const { error } = await supabase.from('med_logs').insert({
-      med_id: medId,
-      caregiver_id: caregiver.id,
-      administered_at: date.toISOString(),
-      window_start: windowStart.toISOString(),
-      window_end: windowEnd.toISOString()
-    });
-
-    if (error) throw error;
+    document.getElementById('cancel-past-dose').onclick = close;
     
-    await loadDashboard();
-  } catch (err) {
-    alert('Error logging past dose: ' + err.message);
-  }
+    document.getElementById('confirm-past-dose').onclick = async () => {
+      const dateStr = dateInput.value;
+      if (!dateStr) return;
+      
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) {
+        alert('Invalid date format');
+        return;
+      }
+
+      try {
+        // Find caregiver ID
+        const { data: caregiver } = await supabase
+          .from('caregivers')
+          .select('id')
+          .eq('email', currentUser.email)
+          .single();
+          
+        if (!caregiver) return;
+
+        // Calculate window based on the past date
+        const windowStart = new Date(date.getTime() - 4 * 60 * 60 * 1000);
+        const windowEnd = new Date(date.getTime() + 4 * 60 * 60 * 1000);
+
+        const { error } = await supabase.from('med_logs').insert({
+          med_id: medId,
+          caregiver_id: caregiver.id,
+          administered_at: date.toISOString(),
+          window_start: windowStart.toISOString(),
+          window_end: windowEnd.toISOString()
+        });
+
+        if (error) throw error;
+        
+        close();
+        await loadDashboard();
+      } catch (err) {
+        alert('Error logging past dose: ' + err.message);
+      }
+    };
+  });
 }
 
 // Handle Export History

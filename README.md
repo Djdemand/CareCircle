@@ -1,6 +1,6 @@
 ﻿# CareCircle - Medicine Care Team App
 
-![Version](https://img.shields.io/badge/version-3.1.0-blue.svg)
+![Version](https://img.shields.io/badge/version-3.2.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
 ## 📋 Project Overview
@@ -367,6 +367,9 @@ The application now includes:
 - ✅ Medication history export (CSV)
 - ✅ Login counter with auto-collapsing user guide
 - ✅ Enhanced privacy (hidden emails)
+- ✅ Date/Time picker for retroactive logging
+- ✅ Show/Hide password toggle
+- ✅ Enter key support for login
 
 ### 📱 Testing the App
 
