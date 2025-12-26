@@ -644,14 +644,12 @@ function renderDashboard() {
                       </div>
                       <div class="flex gap-2">
                         ${isTaken ? '<span class="bg-green-500/20 text-green-500 text-xs font-bold px-2 py-1 rounded-full">TAKEN</span>' : ''}
-                        ${isAdmin ? `
-                          <button class="edit-med-btn text-blue-400 hover:text-blue-300 text-xs font-semibold" data-med-id="${med.id}">
-                            Edit
-                          </button>
-                          <button class="delete-med-btn text-red-400 hover:text-red-300 text-xs font-semibold" data-med-id="${med.id}">
-                            Delete
-                          </button>
-                        ` : ''}
+                        <button class="edit-med-btn text-blue-400 hover:text-blue-300 text-xs font-semibold" data-med-id="${med.id}">
+                          Edit
+                        </button>
+                        <button class="delete-med-btn text-red-400 hover:text-red-300 text-xs font-semibold" data-med-id="${med.id}">
+                          Delete
+                        </button>
                       </div>
                     </div>
                     
@@ -930,12 +928,6 @@ async function handleTransferAdmin(newAdminId) {
 
 // Handle Add Medication
 async function handleAddMedication() {
-  // Check if user is administrator
-  if (!isAdmin) {
-    alert('Only administrators can add medications. Please contact your team administrator.');
-    return;
-  }
-
   const name = prompt('Medication name:');
   if (!name) return;
   
@@ -986,12 +978,6 @@ async function handleAddMedication() {
 
 // Handle Delete Medication
 async function handleDeleteMedication(medId) {
-  // Check if user is administrator
-  if (!isAdmin) {
-    alert('Only administrators can delete medications. Please contact your team administrator.');
-    return;
-  }
-
   if (!confirm('Are you sure you want to delete this medication?')) return;
   
   try {
@@ -1007,12 +993,6 @@ async function handleDeleteMedication(medId) {
 
 // Handle Edit Medication
 async function handleEditMedication(medId) {
-  // Check if user is administrator
-  if (!isAdmin) {
-    alert('Only administrators can edit medications. Please contact your team administrator.');
-    return;
-  }
-
   const med = medications.find(m => m.id === medId);
   if (!med) return;
 
