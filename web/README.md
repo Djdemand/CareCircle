@@ -84,9 +84,19 @@ CREATE POLICY "Team access" ON hydration_logs FOR ALL USING (true);
 
 ✅ User Registration & Login
 ✅ Add Medications
+✅ "As Needed" Medications (frequency = 0, no overdue status)
+✅ Skip Dose Functionality (log as skipped, reset timer)
+✅ Custom Hydration Goals (default 128oz, user-customizable 1-256oz)
+✅ Delete Individual Logs (medication and hydration history)
 ✅ Log Medication Doses
 ✅ View Team Members
 ✅ Dashboard with Stats
+✅ Real-time Team Synchronization
+✅ Hydration Tracking with Glass Animation
+✅ Countdown Timer for Next Dose
+✅ Overdue Status Display
+✅ Medication History Export (CSV)
+✅ Secure In-App Messaging
 
 ## Troubleshooting
 

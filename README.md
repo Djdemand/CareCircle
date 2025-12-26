@@ -8,19 +8,23 @@
 CareCircle is a **multi-platform** application designed for clinical and home care teams (up to 15 users) to coordinate medication administration and hydration tracking for a patient. The app provides real-time synchronization across multiple devices, preventing double-dosing and ensuring safe medication management.
 
 ### Key Features
- 
- ✅ **Real-Time Team Synchronization** - Live updates across all 15 caregiver devices
- ✅ **Duplicate Dose Prevention** - Deterministic dose window locking to prevent double-dosing
- ✅ **Push Notifications** - Team-wide reminders for medication schedules
- ✅ **Hydration Tracking** - Shared water intake logs with visual progress indicators and glass effect
- ✅ **Audit Trail** - Complete history of who administered what and when
- ✅ **Dark Theme UI** - Eye-friendly interface optimized for 24/7 care environments
- ✅ **Web Deployment** - Full-featured web app deployable to Netlify
- ✅ **Mobile App** - React Native/Expo mobile application
- ✅ **Countdown Timer** - Shows time remaining until next dose in hours and minutes
- ✅ **Overdue Status** - Displays overdue medications with red highlighting
- ✅ **Next Dose Time** - Shows exact date and time for next dose
- ✅ **Foreign Key Fixes** - Resolves FK constraints for all users across hydration and medication logging
+  
+  ✅ **Real-Time Team Synchronization** - Live updates across all 15 caregiver devices
+  ✅ **Duplicate Dose Prevention** - Deterministic dose window locking to prevent double-dosing
+  ✅ **Push Notifications** - Team-wide reminders for medication schedules
+  ✅ **Hydration Tracking** - Shared water intake logs with visual progress indicators and glass effect
+  ✅ **Custom Hydration Goals** - Users can set personalized daily water intake targets (default: 128oz)
+  ✅ **"As Needed" Medications** - Mark medications as "As Needed" (frequency = 0) with no overdue status
+  ✅ **Skip Dose Functionality** - Skip scheduled doses with logging and timer reset
+  ✅ **Delete Individual Logs** - Remove specific medication or hydration log entries
+  ✅ **Audit Trail** - Complete history of who administered what and when
+  ✅ **Dark Theme UI** - Eye-friendly interface optimized for 24/7 care environments
+  ✅ **Web Deployment** - Full-featured web app deployable to Netlify
+  ✅ **Mobile App** - React Native/Expo mobile application
+  ✅ **Countdown Timer** - Shows time remaining until next dose in hours and minutes
+  ✅ **Overdue Status** - Displays overdue medications with red highlighting
+  ✅ **Next Dose Time** - Shows exact date and time for next dose
+  ✅ **Foreign Key Fixes** - Resolves FK constraints for all users across hydration and medication logging
 
 ---
 
@@ -200,6 +204,10 @@ See [`supabase/setup.sql`](supabase/setup.sql) for complete schema definition.
 | Add Medication Screen | ✅ Complete | [`AddMedication.tsx`](src/screens/AddMedication.tsx) |
 | Edit Medication | ✅ Complete | [`main.js`](web/src/main.js) |
 | Delete Medication | ✅ Complete | [`main.js`](web/src/main.js) |
+| "As Needed" Medications | ✅ Complete | [`main.js`](web/src/main.js) |
+| Skip Dose Functionality | ✅ Complete | [`main.js`](web/src/main.js) |
+| Custom Hydration Goals | ✅ Complete | [`main.js`](web/src/main.js) |
+| Delete Individual Logs | ✅ Complete | [`main.js`](web/src/main.js) |
 | Team Invitations | ✅ Complete | [`teamService.ts`](src/utils/teamService.ts) |
 | Dose Window Logic | ✅ Complete | [`doseCalc.ts`](src/utils/doseCalc.ts) |
 | Local Storage Mode | ✅ Complete | [`localStorage.ts`](src/utils/localStorage.ts) |
@@ -354,6 +362,10 @@ The application now includes:
 - ✅ Complete authentication flow with email/password
 - ✅ Real-time medication tracking across team devices
 - ✅ Add, edit, and delete medications
+- ✅ **"As Needed" medications** - Mark medications as "As Needed" (frequency = 0) with no overdue status or countdown timers
+- ✅ **Skip Dose functionality** - Skip scheduled doses with logging and timer reset
+- ✅ **Custom Hydration Goals** - Users can set personalized daily water intake targets (default: 128oz, range: 1-256oz)
+- ✅ **Delete Individual Logs** - Remove specific medication or hydration log entries without deleting entire records
 - ✅ Hydration tracking with glass filling animation
 - ✅ Team management (up to 15 caregivers)
 - ✅ User profile management

@@ -17,4 +17,5 @@ CREATE TABLE IF NOT EXISTS messages (
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 
 -- 4. Add policy for messages
+DROP POLICY IF EXISTS "Team access" ON messages;
 CREATE POLICY "Team access" ON messages FOR ALL USING (true);

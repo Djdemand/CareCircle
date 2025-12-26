@@ -46,7 +46,7 @@ To verify the changes were applied:
 
 To enable the new features in version 3.1.0, you need to update your Supabase database schema.
 
-## Instructions
+### Instructions
 
 1.  **Log in to Supabase**
     *   Go to [https://supabase.com/dashboard](https://supabase.com/dashboard) and select your project.
@@ -83,6 +83,7 @@ ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 
 -- 4. Add policy for messages
 -- Allow all authenticated users to read and insert messages
+DROP POLICY IF EXISTS "Team access" ON messages;
 CREATE POLICY "Team access" ON messages FOR ALL USING (true);
 ```
 
@@ -90,7 +91,7 @@ CREATE POLICY "Team access" ON messages FOR ALL USING (true);
     *   Click the **Run** button (bottom right or top right depending on view).
     *   You should see a "Success" message.
 
-## Verification
+### Verification
 
 To verify the changes were applied:
 1.  Go to the **Table Editor** (grid icon in sidebar).
