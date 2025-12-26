@@ -722,6 +722,33 @@ function renderDashboard() {
                   <p class="text-sm">Click the "History" button on each medication to see all past doses and who administered them.</p>
                 </div>
               </div>
+              <div class="flex gap-3">
+                <div class="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center shrink-0">
+                  <span class="text-blue-400 font-bold">6</span>
+                </div>
+                <div>
+                  <h3 class="font-semibold text-slate-200">Log Past Dose</h3>
+                  <p class="text-sm">Forgot to log a dose? Click "Log Past Dose" on any medication to record a dose given earlier.</p>
+                </div>
+              </div>
+              <div class="flex gap-3">
+                <div class="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center shrink-0">
+                  <span class="text-blue-400 font-bold">7</span>
+                </div>
+                <div>
+                  <h3 class="font-semibold text-slate-200">Team Messages</h3>
+                  <p class="text-sm">Use the chat box to leave notes and updates for other caregivers on your team.</p>
+                </div>
+              </div>
+              <div class="flex gap-3">
+                <div class="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center shrink-0">
+                  <span class="text-blue-400 font-bold">8</span>
+                </div>
+                <div>
+                  <h3 class="font-semibold text-slate-200">Export Data</h3>
+                  <p class="text-sm">Click "Export History" at the top to download a CSV file of all medication logs for your records.</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
