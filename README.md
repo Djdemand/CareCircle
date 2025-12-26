@@ -1,6 +1,6 @@
 ﻿# CareCircle - Medicine Care Team App
 
-![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)
+![Version](https://img.shields.io/badge/version-3.1.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
 ## 📋 Project Overview
@@ -362,6 +362,11 @@ The application now includes:
 - ✅ Overdue status with red highlighting for late medications
 - ✅ Next dose time display with date and time
 - ✅ Foreign key constraint fixes for all users (hydration and medication logging)
+- ✅ Retroactive medication logging (Log Past Dose)
+- ✅ Secure in-app messaging
+- ✅ Medication history export (CSV)
+- ✅ Login counter with auto-collapsing user guide
+- ✅ Enhanced privacy (hidden emails)
 
 ### 📱 Testing the App
 

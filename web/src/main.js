@@ -37,6 +37,7 @@ const DAILY_HYDRATION_GOAL = 128; // 128oz (1 gallon)
 let lastHydrationProgress = 0; // Track last hydration progress for animation
 let showHowToUse = false; // Track if "How to use" guide is expanded
 let isFirstLogin = false; // Track if this is the user's first login
+let messages = []; // Track team messages
 
 // Initialize app
 async function init() {
@@ -288,7 +289,8 @@ async function loadDashboard() {
         email: currentUser.email,
         name: currentUser.email.split('@')[0],
         is_admin: shouldBeAdmin,
-        first_login: true
+        first_login: true,
+        login_count: 1
       });
       
       if (createError) {
@@ -302,9 +304,13 @@ async function loadDashboard() {
       // Check if user is administrator
       isAdmin = profile.is_admin || false;
       
-      // Check if this is first login
+      // Update login count
+      const newCount = (profile.login_count || 0) + 1;
+      await supabase.from('caregivers').update({ login_count: newCount }).eq('id', currentUser.id);
+      
+      // Check if this is first login or low login count
       isFirstLogin = profile.first_login || false;
-      showHowToUse = isFirstLogin;
+      showHowToUse = newCount <= 1;
       
       // Fallback: If no admin exists in the system, make this user admin
       if (!isAdmin) {
@@ -321,7 +327,8 @@ async function loadDashboard() {
       loadMedications(),
       loadMedLogs(),
       loadCaregivers(),
-      loadHydrationLogs()
+      loadHydrationLogs(),
+      loadMessages()
     ]);
     
     setupRealtimeSubscription();
@@ -614,6 +621,9 @@ function renderDashboard() {
             <p class="text-slate-400">${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
           </div>
           <div class="flex items-center gap-2">
+            <button id="export-btn" class="bg-slate-800 text-slate-400 px-4 py-2 rounded-lg font-semibold hover:text-white transition-colors">
+              Export History
+            </button>
             <button id="how-to-use-btn" class="bg-blue-500/10 text-blue-500 px-4 py-2 rounded-lg font-semibold hover:bg-blue-500/20 transition-colors">
               How to Use
             </button>
@@ -796,6 +806,10 @@ function renderDashboard() {
                         ✓ Mark as Taken
                       </button>
                     ` : ''}
+                    
+                    <button class="log-past-btn w-full mt-2 text-slate-500 hover:text-slate-400 text-xs font-semibold py-2 transition-colors" data-med-id="${med.id}">
+                      + Log Past Dose
+                    </button>
 
                     <!-- Collapsible History Section -->
                     <div class="mt-4">
@@ -920,7 +934,7 @@ function renderDashboard() {
                           ${cg.name || 'Unnamed'}
                           ${cg.is_admin ? '<span class="text-[10px] text-amber-500 font-bold bg-amber-500/10 px-1 rounded">ADMIN</span>' : ''}
                         </p>
-                        <p class="text-slate-500 text-xs">${cg.email}</p>
+                        <!-- Email hidden for security -->
                       </div>
                     </div>
                     <div class="flex items-center gap-2">
@@ -937,6 +951,36 @@ function renderDashboard() {
                     </div>
                   </div>
                 `).join('')}
+              </div>
+            </div>
+
+            <!-- Team Messages -->
+            <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 mt-8">
+              <h2 class="text-xl font-bold text-slate-100 mb-4">Team Messages</h2>
+              <div class="space-y-4 mb-4 max-h-60 overflow-y-auto custom-scrollbar">
+                ${messages.length === 0 ? '<p class="text-slate-500 text-sm">No messages yet.</p>' :
+                  messages.map(msg => {
+                    const sender = caregivers.find(c => c.id === msg.sender_id);
+                    const isMe = sender?.id === currentUser.id;
+                    return `
+                      <div class="flex flex-col ${isMe ? 'items-end' : 'items-start'}">
+                        <div class="bg-slate-900/50 rounded-xl p-3 max-w-[85%] ${isMe ? 'border border-blue-500/30' : ''}">
+                          <p class="text-xs text-slate-400 mb-1">${sender?.name || 'Unknown'} • ${new Date(msg.created_at).toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'})}</p>
+                          <p class="text-slate-200 text-sm">${msg.content}</p>
+                        </div>
+                      </div>
+                    `;
+                  }).join('')
+                }
+              </div>
+              <div class="flex gap-2">
+                <input type="text" id="message-input" placeholder="Type a message..." class="flex-1 bg-slate-900 text-slate-200 rounded-xl px-4 py-2 border border-slate-700 outline-none focus:border-blue-500">
+                <button id="send-msg-btn" class="bg-blue-500 text-white p-2 rounded-xl hover:bg-blue-600 transition-colors">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                  </svg>
+                </button>
               </div>
             </div>
 
@@ -993,6 +1037,7 @@ Supabase: ${SUPABASE_URL}
 
   // Attach event listeners
   document.getElementById('logout-btn').addEventListener('click', handleLogout);
+  document.getElementById('export-btn').addEventListener('click', handleExportHistory);
   document.getElementById('how-to-use-btn').addEventListener('click', () => {
     showHowToUse = !showHowToUse;
     renderDashboard();
@@ -1008,6 +1053,7 @@ Supabase: ${SUPABASE_URL}
   });
   document.getElementById('add-med-btn').addEventListener('click', handleAddMedication);
   document.getElementById('invite-btn').addEventListener('click', handleInviteCaregiver);
+  document.getElementById('send-msg-btn')?.addEventListener('click', handleSendMessage);
   
   // Mark as Taken buttons
   document.querySelectorAll('.mark-taken-btn').forEach(btn => {
@@ -1027,6 +1073,11 @@ Supabase: ${SUPABASE_URL}
   // Toggle History buttons
   document.querySelectorAll('.toggle-history-btn').forEach(btn => {
     btn.addEventListener('click', () => toggleMedHistory(btn.dataset.medId));
+  });
+
+  // Log Past Dose buttons
+  document.querySelectorAll('.log-past-btn').forEach(btn => {
+    btn.addEventListener('click', () => handleLogPastDose(btn.dataset.medId));
   });
 
   // Add Water buttons
@@ -1287,6 +1338,145 @@ async function handleMarkTaken(medId) {
 function toggleMedHistory(medId) {
   showMedHistory[medId] = !showMedHistory[medId];
   renderDashboard();
+}
+
+// Load Messages
+async function loadMessages() {
+  console.log('CareCircle: Loading messages...');
+  try {
+    const { data, error } = await supabase
+      .from('messages')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (error) {
+      // If table doesn't exist yet, just ignore
+      if (error.code === '42P01') {
+        console.log('Messages table not found, skipping.');
+        messages = [];
+        return;
+      }
+      console.error('CareCircle: Messages load error:', error);
+      messages = [];
+      return;
+    }
+
+    messages = data || [];
+  } catch (err) {
+    console.error('CareCircle: Messages exception:', err);
+    messages = [];
+  }
+}
+
+// Handle Send Message
+async function handleSendMessage() {
+  const input = document.getElementById('message-input');
+  const content = input.value.trim();
+  
+  if (!content) return;
+  
+  try {
+    // Find caregiver ID
+    const { data: caregiver } = await supabase
+      .from('caregivers')
+      .select('id')
+      .eq('email', currentUser.email)
+      .single();
+      
+    if (!caregiver) return;
+
+    const { error } = await supabase.from('messages').insert({
+      sender_id: caregiver.id,
+      content: content,
+      created_at: new Date().toISOString()
+    });
+
+    if (error) throw error;
+    
+    input.value = '';
+    await loadMessages();
+    renderDashboard();
+  } catch (err) {
+    alert('Error sending message: ' + err.message);
+  }
+}
+
+// Handle Log Past Dose
+async function handleLogPastDose(medId) {
+  const dateStr = prompt('Enter date and time (YYYY-MM-DD HH:MM):', new Date().toISOString().slice(0, 16).replace('T', ' '));
+  if (!dateStr) return;
+  
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) {
+    alert('Invalid date format');
+    return;
+  }
+  
+  try {
+    // Find caregiver ID
+    const { data: caregiver } = await supabase
+      .from('caregivers')
+      .select('id')
+      .eq('email', currentUser.email)
+      .single();
+      
+    if (!caregiver) return;
+
+    // Calculate window based on the past date
+    const windowStart = new Date(date.getTime() - 4 * 60 * 60 * 1000);
+    const windowEnd = new Date(date.getTime() + 4 * 60 * 60 * 1000);
+
+    const { error } = await supabase.from('med_logs').insert({
+      med_id: medId,
+      caregiver_id: caregiver.id,
+      administered_at: date.toISOString(),
+      window_start: windowStart.toISOString(),
+      window_end: windowEnd.toISOString()
+    });
+
+    if (error) throw error;
+    
+    await loadDashboard();
+  } catch (err) {
+    alert('Error logging past dose: ' + err.message);
+  }
+}
+
+// Handle Export History
+function handleExportHistory() {
+  if (!medLogs.length) {
+    alert('No history to export');
+    return;
+  }
+
+  const headers = ['Date', 'Time', 'Medication', 'Caregiver'];
+  const rows = medLogs.map(log => {
+    const med = medications.find(m => m.id === log.med_id);
+    const cg = caregivers.find(c => c.id === log.caregiver_id);
+    const date = new Date(log.administered_at);
+    return [
+      date.toLocaleDateString(),
+      date.toLocaleTimeString(),
+      med ? med.name : 'Unknown',
+      cg ? cg.name : 'Unknown'
+    ];
+  });
+
+  const csvContent = [
+    headers.join(','),
+    ...rows.map(row => row.join(','))
+  ].join('\n');
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  link.setAttribute('href', url);
+  link.setAttribute('download', 'medication_history.csv');
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
 
 // Handle Logout
