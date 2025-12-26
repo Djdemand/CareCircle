@@ -6,6 +6,7 @@ CREATE TABLE caregivers (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name TEXT NOT NULL,
     email TEXT UNIQUE NOT NULL,
+    is_admin BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -30,6 +31,7 @@ CREATE TABLE med_logs (
     administered_at TIMESTAMPTZ DEFAULT NOW(),
     window_start TIMESTAMPTZ NOT NULL,
     window_end TIMESTAMPTZ NOT NULL,
+    notes TEXT,
     
     -- Ensure only one log exists for a specific medication within a time window
     CONSTRAINT unique_dose_window UNIQUE (med_id, window_start, window_end)
