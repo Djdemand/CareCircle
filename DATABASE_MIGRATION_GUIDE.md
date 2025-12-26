@@ -1,6 +1,50 @@
 # Database Migration Guide
 
-To enable the new features in version 3.1.0 (Secure Messaging, Login Counter, Soft Delete), you need to update your Supabase database schema.
+This guide contains instructions for applying database migrations for different versions of the application.
+
+## Version 3.3.0 Migration (Custom Hydration Goal)
+
+To enable the custom hydration goal feature, you need to add a new column to the `caregivers` table.
+
+### Instructions
+
+1.  **Log in to Supabase**
+    *   Go to [https://supabase.com/dashboard](https://supabase.com/dashboard) and select your project.
+
+2.  **Open the SQL Editor**
+    *   Click on the **SQL Editor** icon (looks like a terminal prompt `>_`) in the left sidebar.
+
+3.  **Create a New Query**
+    *   Click **+ New Query**.
+    *   Name it "Version 3.3 Migration" (optional).
+
+4.  **Run the Migration Script**
+    *   **IMPORTANT:** Copy the code below exactly as is. Do not include any extra words like "sql" or backticks (```) at the beginning or end.
+    *   Alternatively, you can open the file `supabase/migrations/20251227000000_add_hydration_goal.sql` in your code editor and copy the contents from there.
+
+```sql
+-- Add hydration_goal column to caregivers table
+-- This allows users to set a custom daily hydration goal
+-- Default value is 128 oz to maintain existing behavior
+ALTER TABLE caregivers
+ADD COLUMN IF NOT EXISTS hydration_goal INTEGER DEFAULT 128;
+```
+
+5.  **Execute**
+    *   Click the **Run** button (bottom right or top right depending on view).
+    *   You should see a "Success" message.
+
+### Verification
+
+To verify the changes were applied:
+1.  Go to the **Table Editor** (grid icon in sidebar).
+2.  Check the `caregivers` table: it should now have a `hydration_goal` column.
+
+---
+
+## Version 3.1.0 Migration (Secure Messaging, Login Counter, Soft Delete)
+
+To enable the new features in version 3.1.0, you need to update your Supabase database schema.
 
 ## Instructions
 

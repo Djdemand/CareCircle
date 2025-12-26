@@ -33,7 +33,8 @@ let hydrationLogs = [];
 let isSignupMode = false;
 let showMedHistory = {}; // Track which medication history is expanded
 let isAdmin = false; // Track if current user is administrator
-const DAILY_HYDRATION_GOAL = 128; // 128oz (1 gallon)
+const DEFAULT_HYDRATION_GOAL = 128; // 128oz (1 gallon)
+let userHydrationGoal = DEFAULT_HYDRATION_GOAL; // User's custom hydration goal
 let lastHydrationProgress = 0; // Track last hydration progress for animation
 let showHowToUse = false; // Track if "How to use" guide is expanded
 let isFirstLogin = false; // Track if this is the user's first login
@@ -321,7 +322,8 @@ async function loadDashboard() {
         name: currentUser.email.split('@')[0],
         is_admin: shouldBeAdmin,
         first_login: true,
-        login_count: 1
+        login_count: 1,
+        hydration_goal: DEFAULT_HYDRATION_GOAL
       });
       
       if (createError) {
@@ -331,9 +333,13 @@ async function loadDashboard() {
       isAdmin = shouldBeAdmin;
       isFirstLogin = true;
       showHowToUse = true;
+      userHydrationGoal = DEFAULT_HYDRATION_GOAL;
     } else {
       // Check if user is administrator
       isAdmin = profile.is_admin || false;
+      
+      // Load user's hydration goal
+      userHydrationGoal = profile.hydration_goal || DEFAULT_HYDRATION_GOAL;
       
       // Update login count
       const newCount = (profile.login_count || 0) + 1;
@@ -597,6 +603,83 @@ async function handleResetHydration() {
   }
 }
 
+// Handle Set Hydration Goal
+async function handleSetHydrationGoal() {
+  const goal = prompt('Enter your daily hydration goal in ounces (oz):', userHydrationGoal);
+  if (!goal) return;
+  
+  const goalNum = parseInt(goal);
+  if (isNaN(goalNum) || goalNum < 1 || goalNum > 256) {
+    alert('Please enter a valid goal between 1 and 256 oz.');
+    return;
+  }
+  
+  try {
+    const { error } = await supabase.from('caregivers')
+      .update({ hydration_goal: goalNum })
+      .eq('id', currentUser.id);
+      
+    if (error) throw error;
+    
+    userHydrationGoal = goalNum;
+    renderDashboard();
+  } catch (err) {
+    alert('Error setting hydration goal: ' + err.message);
+  }
+}
+
+// Handle Skip Dose
+async function handleSkipDose(medId) {
+  if (!confirm('Skip this dose? This will log the dose as skipped and reset the timer.')) return;
+  
+  try {
+    // Find caregiver ID
+    const { data: caregiver } = await supabase
+      .from('caregivers')
+      .select('id')
+      .eq('email', currentUser.email)
+      .single();
+      
+    if (!caregiver) return;
+
+    const now = new Date();
+    const windowStart = new Date(now.getTime() - 4 * 60 * 60 * 1000);
+    const windowEnd = new Date(now.getTime() + 4 * 60 * 60 * 1000);
+    
+    const { error } = await supabase.from('med_logs').insert({
+      med_id: medId,
+      caregiver_id: caregiver.id,
+      window_start: windowStart.toISOString(),
+      window_end: windowEnd.toISOString(),
+      notes: 'Skipped'
+    });
+    
+    if (error) throw error;
+    
+    await loadDashboard();
+  } catch (err) {
+    alert('Error skipping dose: ' + err.message);
+  }
+}
+
+// Handle Delete Medication Log
+async function handleDeleteMedLog(logId) {
+  if (!confirm('Delete this log entry?')) return;
+  
+  try {
+    const { error } = await supabase.from('med_logs')
+      .delete()
+      .eq('id', logId);
+      
+    if (error) throw error;
+    
+    await loadMedLogs();
+    renderDashboard();
+  } catch (err) {
+    alert('Error deleting log: ' + err.message);
+  }
+}
+
 // Handle Invite Caregiver
 async function handleInviteCaregiver() {
   const email = prompt('Enter email address to invite:');
@@ -637,7 +720,7 @@ async function handleRemoveCaregiver(id) {
 function renderDashboard() {
   // Hydration Calculations
   const hydrationTotal = hydrationLogs.reduce((sum, log) => sum + log.amount_oz, 0);
-  const hydrationProgress = Math.min((hydrationTotal / DAILY_HYDRATION_GOAL) * 100, 100);
+  const hydrationProgress = Math.min((hydrationTotal / userHydrationGoal) * 100, 100);
 
   root.innerHTML = `
     <div class="min-h-screen bg-slate-900 p-6">
@@ -749,6 +832,42 @@ function renderDashboard() {
                   <p class="text-sm">Click "Export History" at the top to download a CSV file of all medication logs for your records.</p>
                 </div>
               </div>
+              <div class="flex gap-3">
+                <div class="w-8 h-8 bg-purple-500/20 rounded-full flex items-center justify-center shrink-0">
+                  <span class="text-purple-400 font-bold">9</span>
+                </div>
+                <div>
+                  <h3 class="font-semibold text-slate-200">"As Needed" Medications</h3>
+                  <p class="text-sm">When adding a medication, enter "0" for frequency to mark it as "As Needed". These medications won't show overdue status or countdown timers.</p>
+                </div>
+              </div>
+              <div class="flex gap-3">
+                <div class="w-8 h-8 bg-amber-500/20 rounded-full flex items-center justify-center shrink-0">
+                  <span class="text-amber-400 font-bold">10</span>
+                </div>
+                <div>
+                  <h3 class="font-semibold text-slate-200">Skip Dose</h3>
+                  <p class="text-sm">For scheduled medications, use the "Skip Dose" button to skip a dose. This logs the dose as skipped and resets the timer.</p>
+                </div>
+              </div>
+              <div class="flex gap-3">
+                <div class="w-8 h-8 bg-cyan-500/20 rounded-full flex items-center justify-center shrink-0">
+                  <span class="text-cyan-400 font-bold">11</span>
+                </div>
+                <div>
+                  <h3 class="font-semibold text-slate-200">Custom Hydration Goal</h3>
+                  <p class="text-sm">Click "Set Daily Goal" to customize your daily water intake target (default: 128oz).</p>
+                </div>
+              </div>
+              <div class="flex gap-3">
+                <div class="w-8 h-8 bg-red-500/20 rounded-full flex items-center justify-center shrink-0">
+                  <span class="text-red-400 font-bold">12</span>
+                </div>
+                <div>
+                  <h3 class="font-semibold text-slate-200">Delete Individual Logs</h3>
+                  <p class="text-sm">Click the trash icon next to any history entry to delete it. This works for both medication and hydration logs.</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -790,8 +909,9 @@ function renderDashboard() {
                   let nextDue = null;
                   let isOverdue = false;
                   let timeRemaining = null;
+                  const isAsNeeded = med.frequency_hours === 0;
                   
-                  if (lastLog) {
+                  if (lastLog && !isAsNeeded) {
                     const lastTaken = new Date(lastLog.administered_at);
                     const now = new Date();
                     const hoursSince = (now - lastTaken) / (1000 * 60 * 60);
@@ -813,7 +933,7 @@ function renderDashboard() {
                       timeRemaining = { hours: overdueHours, minutes: overdueMins, overdue: true };
                     }
                   }
-                  // Note: No countdown timer shown if medication hasn't been taken yet
+                  // Note: No countdown timer shown if medication hasn't been taken yet or is "As Needed"
 
                   // Get all logs for this medication
                   const medHistory = medLogs.filter(log => log.med_id === med.id);
@@ -824,10 +944,11 @@ function renderDashboard() {
                     <div class="flex justify-between items-start">
                       <div>
                         <h3 class="text-xl font-bold text-slate-100">${med.name}</h3>
-                        <p class="text-slate-400 mt-1">${med.dosage || 'Dosage not specified'} • Every ${med.frequency_hours || '?'}h</p>
+                        <p class="text-slate-400 mt-1">${med.dosage || 'Dosage not specified'} • ${isAsNeeded ? 'As Needed' : `Every ${med.frequency_hours || '?'}h`}</p>
                         <p class="text-slate-500 text-sm mt-1">${med.instructions || 'No instructions'}</p>
                       </div>
                       <div class="flex gap-2">
+                        ${isAsNeeded ? '<span class="bg-purple-500/20 text-purple-500 text-xs font-bold px-2 py-1 rounded-full">AS NEEDED</span>' : ''}
                         ${isOverdue ? '<span class="bg-red-500/20 text-red-500 text-xs font-bold px-2 py-1 rounded-full">OVERDUE</span>' : ''}
                         ${isTaken ? '<span class="bg-green-500/20 text-green-500 text-xs font-bold px-2 py-1 rounded-full">TAKEN</span>' : ''}
                         <button class="edit-med-btn text-blue-400 hover:text-blue-300 text-xs font-semibold" data-med-id="${med.id}">
@@ -859,7 +980,18 @@ function renderDashboard() {
                       </div>
                     ` : ''}
                     
-                    ${!isTaken ? `
+                    ${!isAsNeeded && !isTaken ? `
+                      <div class="flex gap-2 mt-4">
+                        <button class="mark-taken-btn flex-1 bg-green-500/10 text-green-500 hover:bg-green-500/20 font-bold py-3 rounded-xl transition-colors" data-med-id="${med.id}">
+                          ✓ Mark as Taken
+                        </button>
+                        <button class="skip-dose-btn flex-1 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 font-bold py-3 rounded-xl transition-colors" data-med-id="${med.id}">
+                          ✕ Skip Dose
+                        </button>
+                      </div>
+                    ` : ''}
+                    
+                    ${isAsNeeded ? `
                       <button class="mark-taken-btn w-full mt-4 bg-green-500/10 text-green-500 hover:bg-green-500/20 font-bold py-3 rounded-xl transition-colors" data-med-id="${med.id}">
                         ✓ Mark as Taken
                       </button>
@@ -888,9 +1020,17 @@ function renderDashboard() {
                                   <span class="text-slate-400 text-xs">${new Date(log.administered_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span>
                                   <span class="text-slate-300 text-sm font-semibold">${new Date(log.administered_at).toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'})}</span>
                                 </div>
-                                <div class="text-right">
-                                  <span class="text-slate-500 text-xs">by ${caregivers.find(cg => cg.id === log.caregiver_id)?.name || 'Unknown'}</span>
-                                  ${log.notes ? `<span class="text-slate-400 text-xs ml-2">"${log.notes}"</span>` : ''}
+                                <div class="flex items-center gap-2">
+                                  <div class="text-right">
+                                    <span class="text-slate-500 text-xs">by ${caregivers.find(cg => cg.id === log.caregiver_id)?.name || 'Unknown'}</span>
+                                    ${log.notes ? `<span class="text-slate-400 text-xs ml-2">"${log.notes}"</span>` : ''}
+                                  </div>
+                                  <button class="delete-log-btn text-red-400 hover:text-red-300 text-xs" data-log-id="${log.id}" title="Delete this log">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                      <polyline points="3 6 5 6 21 6"></polyline>
+                                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                    </svg>
+                                  </button>
                                 </div>
                               </div>
                             `).join('')
@@ -927,7 +1067,7 @@ function renderDashboard() {
                       <span class="text-4xl font-black text-white">${hydrationTotal}</span>
                       <span class="text-slate-400 font-bold text-lg">oz</span>
                     </div>
-                    <p class="text-blue-500 text-xs font-bold mt-1">GOAL: ${DAILY_HYDRATION_GOAL}OZ</p>
+                    <p class="text-blue-500 text-xs font-bold mt-1">GOAL: ${userHydrationGoal}OZ</p>
                   </div>
 
                   <div class="flex gap-2 mt-2">
@@ -948,7 +1088,10 @@ function renderDashboard() {
                     </button>
                   </div>
                   
-                  <div class="mt-4 pt-4 border-t border-slate-700/50">
+                  <div class="mt-4 pt-4 border-t border-slate-700/50 space-y-2">
+                    <button id="set-goal-btn" class="w-full bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 font-bold py-3 rounded-xl transition-colors">
+                      Set Daily Goal
+                    </button>
                     <button id="reset-water-btn" class="w-full bg-red-500/10 text-red-500 hover:bg-red-500/20 font-bold py-3 rounded-xl transition-colors">
                       Reset Today's Hydration
                     </button>
@@ -1149,6 +1292,22 @@ Supabase: ${SUPABASE_URL}
     resetBtn.addEventListener('click', handleResetHydration);
   }
 
+  // Set Goal button
+  const setGoalBtn = document.getElementById('set-goal-btn');
+  if (setGoalBtn) {
+    setGoalBtn.addEventListener('click', handleSetHydrationGoal);
+  }
+
+  // Skip Dose buttons
+  document.querySelectorAll('.skip-dose-btn').forEach(btn => {
+    btn.addEventListener('click', () => handleSkipDose(btn.dataset.medId));
+  });
+
+  // Delete Log buttons
+  document.querySelectorAll('.delete-log-btn').forEach(btn => {
+    btn.addEventListener('click', () => handleDeleteMedLog(btn.dataset.logId));
+  });
+
   // Delete Water buttons
   document.querySelectorAll('.delete-water-btn').forEach(btn => {
     btn.addEventListener('click', () => handleDeleteHydration(btn.dataset.id));
@@ -1204,8 +1363,8 @@ async function handleAddMedication() {
   const dosage = prompt('Dosage (e.g., 500mg):');
   if (!dosage) return;
   
-  const frequency = prompt('Frequency in hours (e.g., 8 for every 8 hours):');
-  if (!frequency) return;
+  const frequency = prompt('Frequency in hours (e.g., 8 for every 8 hours). Enter 0 for "As Needed":');
+  if (frequency === null || frequency === '') return;
   
   const instructions = prompt('Instructions (optional):') || '';
   
@@ -1299,8 +1458,8 @@ async function handleEditMedication(medId) {
   const dosage = prompt('Dosage (e.g., 500mg):', med.dosage);
   if (!dosage) return;
   
-  const frequency = prompt('Frequency in hours (e.g., 8 for every 8 hours):', med.frequency_hours);
-  if (!frequency) return;
+  const frequency = prompt('Frequency in hours (e.g., 8 for every 8 hours). Enter 0 for "As Needed":', med.frequency_hours);
+  if (frequency === null || frequency === '') return;
   
   const instructions = prompt('Instructions (optional):', med.instructions) || '';
   
