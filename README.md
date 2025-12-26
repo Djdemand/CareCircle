@@ -1,6 +1,6 @@
 ﻿# CareCircle - Medicine Care Team App
-
-![Version](https://img.shields.io/badge/version-1.3.0-blue.svg)
+ 
+ ![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
 ## 📋 Project Overview
@@ -8,15 +8,19 @@
 CareCircle is a **multi-platform** application designed for clinical and home care teams (up to 5 users) to coordinate medication administration and hydration tracking for a patient. The app provides real-time synchronization across multiple devices, preventing double-dosing and ensuring safe medication management.
 
 ### Key Features
-
-✅ **Real-Time Team Synchronization** - Live updates across all 5 caregiver devices
-✅ **Duplicate Dose Prevention** - Deterministic dose window locking to prevent double-dosing
-✅ **Push Notifications** - Team-wide reminders for medication schedules
-✅ **Hydration Tracking** - Shared water intake logs with visual progress indicators and glass effect
-✅ **Audit Trail** - Complete history of who administered what and when
-✅ **Dark Theme UI** - Eye-friendly interface optimized for 24/7 care environments
-✅ **Web Deployment** - Full-featured web app deployable to Netlify
-✅ **Mobile App** - React Native/Expo mobile application
+ 
+ ✅ **Real-Time Team Synchronization** - Live updates across all 5 caregiver devices
+ ✅ **Duplicate Dose Prevention** - Deterministic dose window locking to prevent double-dosing
+ ✅ **Push Notifications** - Team-wide reminders for medication schedules
+ ✅ **Hydration Tracking** - Shared water intake logs with visual progress indicators and glass effect
+ ✅ **Audit Trail** - Complete history of who administered what and when
+ ✅ **Dark Theme UI** - Eye-friendly interface optimized for 24/7 care environments
+ ✅ **Web Deployment** - Full-featured web app deployable to Netlify
+ ✅ **Mobile App** - React Native/Expo mobile application
+ ✅ **Countdown Timer** - Shows time remaining until next dose in hours and minutes
+ ✅ **Overdue Status** - Displays overdue medications with red highlighting
+ ✅ **Next Dose Time** - Shows exact date and time for next dose
+ ✅ **Foreign Key Fixes** - Resolves FK constraints for all users across hydration and medication logging
 
 ---
 
@@ -208,6 +212,10 @@ See [`supabase/setup.sql`](supabase/setup.sql) for complete schema definition.
 | Team Management | ✅ Complete | [`TeamManagement.tsx`](src/screens/TeamManagement.tsx) |
 | Hydration Tracking UI | ✅ Complete | [`HydrationTracker.tsx`](src/screens/HydrationTracker.tsx) |
 | Glass Hydration Animation | ✅ Complete | [`main.js`](web/src/main.js) |
+| Countdown Timer | ✅ Complete | [`main.js`](web/src/main.js) |
+| Overdue Status | ✅ Complete | [`main.js`](web/src/main.js) |
+| Next Dose Time Display | ✅ Complete | [`main.js`](web/src/main.js) |
+| Foreign Key Constraint Fixes | ✅ Complete | [`main.js`](web/src/main.js) |
 | Settings Screen | ⏳ Planned | - |
 | Medication History | ⏳ Planned | - |
 
@@ -311,7 +319,10 @@ The application now includes:
 - ✅ Team management (up to 5 caregivers)
 - ✅ User profile management
 - ✅ Dark theme UI optimized for care environments
-- ✅ Foreign key constraint fix for medication creation
+- ✅ Countdown timer showing time until next dose
+- ✅ Overdue status with red highlighting for late medications
+- ✅ Next dose time display with date and time
+- ✅ Foreign key constraint fixes for all users (hydration and medication logging)
 
 ### 📱 Testing the App
 
@@ -400,5 +411,5 @@ For questions or issues, please review the documentation files:
 ---
 
 **Last Updated**: December 26, 2025
-**Version**: 1.3.0
+**Version**: 2.0.0
 **Status**: ✅ Production Ready
