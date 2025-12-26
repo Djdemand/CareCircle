@@ -1,6 +1,6 @@
 ﻿# CareCircle - Medicine Care Team App
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
+![Version](https://img.shields.io/badge/version-1.3.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
 ## 📋 Project Overview
@@ -194,6 +194,8 @@ See [`supabase/setup.sql`](supabase/setup.sql) for complete schema definition.
 | Push Notifications | ✅ Complete | [`useNotifications.ts`](src/hooks/useNotifications.ts) |
 | Medication Card UI | ✅ Complete | [`MedicationCard.tsx`](src/components/MedicationCard.tsx) |
 | Add Medication Screen | ✅ Complete | [`AddMedication.tsx`](src/screens/AddMedication.tsx) |
+| Edit Medication | ✅ Complete | [`main.js`](web/src/main.js) |
+| Delete Medication | ✅ Complete | [`main.js`](web/src/main.js) |
 | Team Invitations | ✅ Complete | [`teamService.ts`](src/utils/teamService.ts) |
 | Dose Window Logic | ✅ Complete | [`doseCalc.ts`](src/utils/doseCalc.ts) |
 | Local Storage Mode | ✅ Complete | [`localStorage.ts`](src/utils/localStorage.ts) |
@@ -205,6 +207,7 @@ See [`supabase/setup.sql`](supabase/setup.sql) for complete schema definition.
 | Profile Screen | ✅ Complete | [`Profile.tsx`](src/screens/Profile.tsx) |
 | Team Management | ✅ Complete | [`TeamManagement.tsx`](src/screens/TeamManagement.tsx) |
 | Hydration Tracking UI | ✅ Complete | [`HydrationTracker.tsx`](src/screens/HydrationTracker.tsx) |
+| Glass Hydration Animation | ✅ Complete | [`main.js`](web/src/main.js) |
 | Settings Screen | ⏳ Planned | - |
 | Medication History | ⏳ Planned | - |
 
@@ -303,10 +306,12 @@ All core functionality has been implemented! The app is ready for testing and de
 The application now includes:
 - ✅ Complete authentication flow with email/password
 - ✅ Real-time medication tracking across team devices
-- ✅ Hydration tracking with visual progress
+- ✅ Add, edit, and delete medications
+- ✅ Hydration tracking with glass filling animation
 - ✅ Team management (up to 5 caregivers)
 - ✅ User profile management
 - ✅ Dark theme UI optimized for care environments
+- ✅ Foreign key constraint fix for medication creation
 
 ### 📱 Testing the App
 
@@ -394,6 +399,6 @@ For questions or issues, please review the documentation files:
 
 ---
 
-**Last Updated**: December 25, 2025
-**Version**: 1.0.0
+**Last Updated**: December 26, 2025
+**Version**: 1.3.0
 **Status**: ✅ Production Ready

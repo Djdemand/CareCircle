@@ -322,6 +322,13 @@ function setupRealtimeSubscription() {
       loadCaregivers().then(renderDashboard);
     })
     .subscribe();
+
+  supabase
+    .channel('public:medications')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'medications' }, () => {
+      loadMedications().then(renderDashboard);
+    })
+    .subscribe();
 }
 
 // Load Medications
@@ -554,7 +561,21 @@ function renderDashboard() {
                         <p class="text-slate-400 mt-1">${med.dosage || 'Dosage not specified'} • Every ${med.frequency_hours || '?'}h</p>
                         <p class="text-slate-500 text-sm mt-1">${med.instructions || 'No instructions'}</p>
                       </div>
-                      ${isTaken ? '<span class="bg-green-500/20 text-green-500 text-xs font-bold px-2 py-1 rounded-full">TAKEN</span>' : ''}
+                      <div class="flex gap-2">
+                        ${isTaken ? '<span class="bg-green-500/20 text-green-500 text-xs font-bold px-2 py-1 rounded-full">TAKEN</span>' : ''}
+                        <button class="edit-med-btn text-blue-400 hover:text-blue-300 p-1" data-med-id="${med.id}" title="Edit">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 1 4.5-4.5z"></path>
+                          </svg>
+                        </button>
+                        <button class="delete-med-btn text-red-400 hover:text-red-300 p-1" data-med-id="${med.id}" title="Delete">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                          </svg>
+                        </button>
+                      </div>
                     </div>
                     
                     ${isTaken ? `
@@ -575,7 +596,7 @@ function renderDashboard() {
 
           <!-- Right Column: Hydration & Team -->
           <div class="space-y-8">
-            <!-- Hydration Tracker (Mockup Style) -->
+            <!-- Hydration Tracker (Glass Animation) -->
             <div class="bg-blue-600 rounded-3xl p-5 text-white shadow-lg relative overflow-hidden">
               <div class="relative z-10 flex justify-between items-center">
                 <div>
@@ -586,10 +607,26 @@ function renderDashboard() {
                     <span class="text-sm ml-1 text-blue-100">oz</span>
                   </div>
                 </div>
-                <!-- Progress Circle with Liquid Effect -->
-                <div class="w-20 h-20 rounded-full border-4 border-blue-400 flex items-center justify-center relative bg-blue-800/30 overflow-hidden">
-                  <div class="absolute bottom-0 left-0 right-0 bg-blue-300 transition-all duration-500" style="height: ${hydrationProgress}%"></div>
-                  <div class="relative z-10 text-xl">💧</div>
+                <!-- Glass Animation - Starts empty, fills up as user drinks water -->
+                <div class="relative">
+                  <!-- Glass Container -->
+                  <div class="w-20 h-24 rounded-b-2xl rounded-t-lg border-4 border-white/30 flex items-end justify-center relative bg-blue-900/40 overflow-hidden shadow-inner">
+                    <!-- Water Level - Fills from bottom up -->
+                    <div class="w-full bg-gradient-to-t from-blue-400 to-blue-300 transition-all duration-700 ease-out relative" style="height: ${hydrationProgress}%">
+                      <!-- Water surface effect -->
+                      <div class="absolute top-0 left-0 right-0 h-2 bg-blue-200/50 rounded-full"></div>
+                      <!-- Bubbles animation -->
+                      <div class="absolute bottom-2 left-4 w-1 h-1 bg-white/30 rounded-full animate-pulse"></div>
+                      <div class="absolute bottom-4 right-6 w-1.5 h-1.5 bg-white/20 rounded-full animate-pulse" style="animation-delay: 0.5s"></div>
+                      <div class="absolute bottom-6 left-8 w-1 h-1 bg-white/25 rounded-full animate-pulse" style="animation-delay: 1s"></div>
+                    </div>
+                    <!-- Glass shine effect -->
+                    <div class="absolute top-2 left-2 w-4 h-16 bg-gradient-to-b from-white/20 to-transparent rounded-full"></div>
+                    <!-- Water droplet icon -->
+                    <div class="absolute top-2 right-2 text-2xl opacity-80">💧</div>
+                  </div>
+                  <!-- Glass base -->
+                  <div class="w-20 h-1 bg-white/20 rounded-b-lg mt-0.5"></div>
                 </div>
               </div>
               
@@ -691,6 +728,16 @@ Supabase: ${SUPABASE_URL}
   // Remove Member buttons
   document.querySelectorAll('.remove-member-btn').forEach(btn => {
     btn.addEventListener('click', () => handleRemoveCaregiver(btn.dataset.id));
+  });
+
+  // Edit Medication buttons
+  document.querySelectorAll('.edit-med-btn').forEach(btn => {
+    btn.addEventListener('click', () => handleEditMedication(btn.dataset.medId));
+  });
+
+  // Delete Medication buttons
+  document.querySelectorAll('.delete-med-btn').forEach(btn => {
+    btn.addEventListener('click', () => handleDeleteMedication(btn.dataset.medId));
   });
 }
 
@@ -796,6 +843,65 @@ async function handleMarkTaken(medId) {
     await loadDashboard();
   } catch (err) {
     alert('Error logging dose: ' + err.message);
+  }
+}
+
+// Handle Edit Medication
+async function handleEditMedication(medId) {
+  const med = medications.find(m => m.id === medId);
+  if (!med) return;
+
+  const name = prompt('Medication name:', med.name);
+  if (!name) return;
+  
+  const dosage = prompt('Dosage (e.g., 500mg):', med.dosage);
+  if (!dosage) return;
+  
+  const frequency = prompt('Frequency in hours (e.g., 8 for every 8 hours):', med.frequency_hours);
+  if (!frequency) return;
+  
+  const instructions = prompt('Instructions (optional):', med.instructions || '') || '';
+  
+  console.log('CareCircle: Editing medication:', { medId, name, dosage, frequency, instructions });
+  
+  try {
+    const { error } = await supabase.from('medications').update({
+      name,
+      dosage,
+      frequency_hours: parseInt(frequency),
+      instructions
+    }).eq('id', medId);
+    
+    if (error) {
+      alert('Failed to update medication: ' + error.message);
+      return;
+    }
+    
+    await loadMedications();
+    renderDashboard();
+  } catch (err) {
+    alert('Error updating medication: ' + err.message);
+  }
+}
+
+// Handle Delete Medication
+async function handleDeleteMedication(medId) {
+  if (!confirm('Are you sure you want to delete this medication? This action cannot be undone.')) return;
+  
+  console.log('CareCircle: Deleting medication:', medId);
+  
+  try {
+    const { error } = await supabase.from('medications').delete().eq('id', medId);
+    
+    if (error) {
+      alert('Failed to delete medication: ' + error.message);
+      return;
+    }
+    
+    await loadMedications();
+    renderDashboard();
+  } catch (err) {
+    alert('Error deleting medication: ' + err.message);
   }
 }
 
