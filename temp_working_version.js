@@ -31,10 +31,7 @@ let medLogs = [];
 let caregivers = [];
 let hydrationLogs = [];
 let isSignupMode = false;
-let showMedHistory = {}; // Track which medication history is expanded
-let isAdmin = false; // Track if current user is administrator
 const DAILY_HYDRATION_GOAL = 64; // 64oz (approx 2 liters)
-let lastHydrationProgress = 0; // Track last hydration progress for animation
 
 // Initialize app
 async function init() {
@@ -272,39 +269,18 @@ async function loadDashboard() {
   
   try {
     // Ensure caregiver profile exists
-    const { data: profile } = await supabase.from('caregivers').select('*').eq('id', currentUser.id).single();
+    const { data: profile } = await supabase.from('caregivers').select('id').eq('id', currentUser.id).single();
     
     if (!profile) {
       console.log('CareCircle: Creating missing caregiver profile...');
-      
-      // Check if any admin exists
-      const { count } = await supabase.from('caregivers').select('*', { count: 'exact', head: true }).eq('is_admin', true);
-      const shouldBeAdmin = count === 0;
-
       const { error: createError } = await supabase.from('caregivers').insert({
         id: currentUser.id,
         email: currentUser.email,
-        name: currentUser.email.split('@')[0],
-        is_admin: shouldBeAdmin
+        name: currentUser.email.split('@')[0]
       });
       
       if (createError) {
         console.error('CareCircle: Failed to create profile:', createError);
-      }
-      
-      isAdmin = shouldBeAdmin;
-    } else {
-      // Check if user is administrator
-      isAdmin = profile.is_admin || false;
-      
-      // Fallback: If no admin exists in the system, make this user admin
-      if (!isAdmin) {
-        const { count } = await supabase.from('caregivers').select('*', { count: 'exact', head: true }).eq('is_admin', true);
-        if (count === 0) {
-          console.log('CareCircle: No admin found, promoting current user...');
-          await supabase.from('caregivers').update({ is_admin: true }).eq('id', currentUser.id);
-          isAdmin = true;
-        }
       }
     }
 
@@ -344,6 +320,13 @@ function setupRealtimeSubscription() {
     .channel('public:caregivers')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'caregivers' }, () => {
       loadCaregivers().then(renderDashboard);
+    })
+    .subscribe();
+
+  supabase
+    .channel('public:medications')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'medications' }, () => {
+      loadMedications().then(renderDashboard);
     })
     .subscribe();
 }
@@ -442,28 +425,14 @@ async function loadHydrationLogs() {
 // Handle Add Water
 async function handleAddWater(amount) {
   try {
-    // Find the caregiver record for the current user
-    const { data: caregiver } = await supabase
-      .from('caregivers')
-      .select('id')
-      .eq('id', currentUser.id)
-      .single();
-
-    if (!caregiver) {
-      alert('Error: Caregiver profile not found. Please try logging out and back in.');
-      return;
-    }
-
     const { error } = await supabase.from('hydration_logs').insert({
       amount_oz: amount,
       logged_at: new Date().toISOString(),
-      caregiver_id: caregiver.id
+      caregiver_id: currentUser.id
     });
 
     if (error) throw error;
-    // Force immediate reload to show animation
-    await loadHydrationLogs();
-    renderDashboard();
+    // Realtime subscription will handle reload
   } catch (err) {
     alert('Error adding water: ' + err.message);
   }
@@ -476,51 +445,8 @@ async function handleDeleteHydration(id) {
   try {
     const { error } = await supabase.from('hydration_logs').delete().eq('id', id);
     if (error) throw error;
-    // Force immediate reload to show animation
-    await loadHydrationLogs();
-    renderDashboard();
   } catch (err) {
     alert('Error deleting entry: ' + err.message);
-  }
-}
-
-// Handle Reset Hydration
-async function handleResetHydration() {
-  if (!confirm('Are you sure you want to reset today\'s hydration logs?')) return;
-  
-  try {
-    const today = new Date().toISOString().split('T')[0];
-    // Delete all logs for today
-    const { error } = await supabase.from('hydration_logs')
-      .delete()
-      .gte('logged_at', today);
-      
-    if (error) throw error;
-    
-    await loadHydrationLogs();
-    renderDashboard();
-  } catch (err) {
-    alert('Error resetting hydration: ' + err.message);
-  }
-}
-
-// Handle Reset Hydration
-async function handleResetHydration() {
-  if (!confirm('Are you sure you want to reset today\'s hydration logs?')) return;
-  
-  try {
-    const today = new Date().toISOString().split('T')[0];
-    // Delete all logs for today
-    const { error } = await supabase.from('hydration_logs')
-      .delete()
-      .gte('logged_at', today);
-      
-    if (error) throw error;
-    
-    await loadHydrationLogs();
-    renderDashboard();
-  } catch (err) {
-    alert('Error resetting hydration: ' + err.message);
   }
 }
 
@@ -572,13 +498,10 @@ function renderDashboard() {
         <!-- Header -->
         <div class="flex justify-between items-center mb-8">
           <div>
-            <h1 class="text-2xl font-black text-slate-100 flex items-center gap-2">
-              Hello, ${currentUser?.email?.split('@')[0] || 'User'}
-              ${isAdmin ? '<span class="bg-amber-500/20 text-amber-500 text-xs font-bold px-2 py-1 rounded border border-amber-500/50">ADMIN</span>' : ''}
-            </h1>
+            <h1 class="text-2xl font-black text-slate-100">Hello, ${currentUser?.email?.split('@')[0] || 'User'}</h1>
             <p class="text-slate-400">${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
           </div>
-          <button id="logout-btn" class="bg-red-500/10 text-red-500 px-4 py-2 rounded-lg font-semibold hover:bg-red-500/20 transition-colors">
+          <button id="logout-btn" class="bg-red-500/10 text-red-500 px-4 py-2 rounded-lg font-semibold">
             Logout
           </button>
         </div>
@@ -630,10 +553,6 @@ function renderDashboard() {
                     }
                   }
 
-                  // Get all logs for this medication
-                  const medHistory = medLogs.filter(log => log.med_id === med.id);
-                  const isExpanded = showMedHistory[med.id] || false;
-
                   return `
                   <div class="bg-slate-800 p-6 rounded-2xl mb-4 border border-slate-700 ${isTaken ? 'opacity-75' : ''}">
                     <div class="flex justify-between items-start">
@@ -644,55 +563,31 @@ function renderDashboard() {
                       </div>
                       <div class="flex gap-2">
                         ${isTaken ? '<span class="bg-green-500/20 text-green-500 text-xs font-bold px-2 py-1 rounded-full">TAKEN</span>' : ''}
-                        <button class="edit-med-btn text-blue-400 hover:text-blue-300 text-xs font-semibold" data-med-id="${med.id}">
-                          Edit
+                        <button class="edit-med-btn text-blue-400 hover:text-blue-300 p-1" data-med-id="${med.id}" title="Edit">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 1 4.5-4.5z"></path>
+                          </svg>
                         </button>
-                        <button class="delete-med-btn text-red-400 hover:text-red-300 text-xs font-semibold" data-med-id="${med.id}">
-                          Delete
+                        <button class="delete-med-btn text-red-400 hover:text-red-300 p-1" data-med-id="${med.id}" title="Delete">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                          </svg>
                         </button>
                       </div>
                     </div>
                     
                     ${isTaken ? `
                       <div class="mt-4 p-3 bg-slate-900/50 rounded-xl border border-slate-700/50 text-center">
-                        <p class="text-slate-400 text-sm">Last dose taken at</p>
-                        <p class="text-slate-200 font-bold">${lastLog.administered_at ? new Date(lastLog.administered_at).toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'}) : 'N/A'}</p>
+                        <p class="text-slate-400 text-sm">Next dose due at</p>
+                        <p class="text-slate-200 font-bold">${nextDue.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'})}</p>
                       </div>
                     ` : `
                       <button class="mark-taken-btn w-full mt-4 bg-green-500/10 text-green-500 hover:bg-green-500/20 font-bold py-3 rounded-xl transition-colors" data-med-id="${med.id}">
                         ✓ Mark as Taken
                       </button>
                     `}
-
-                    <!-- Collapsible History Section -->
-                    <div class="mt-4">
-                      <button class="toggle-history-btn w-full text-left text-slate-400 text-sm hover:text-slate-300 py-2 px-3 rounded-lg bg-slate-900/50 hover:bg-slate-900/70 transition-colors" data-med-id="${med.id}">
-                        <span class="flex items-center gap-2">
-                          <span>${isExpanded ? '▼' : '▶'}</span>
-                          <span>History (${medHistory.length} doses)</span>
-                        </span>
-                      </button>
-                      
-                      ${isExpanded ? `
-                        <div class="mt-2 bg-slate-900/30 rounded-xl border border-slate-700/50 p-3">
-                          ${medHistory.length === 0 ?
-                            '<p class="text-slate-500 text-sm text-center">No doses logged yet</p>' :
-                            medHistory.map(log => `
-                              <div class="flex justify-between items-center py-2 border-b border-slate-700/50 last:border-0">
-                                <div class="flex items-center gap-2">
-                                  <span class="text-slate-400 text-xs">${new Date(log.administered_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span>
-                                  <span class="text-slate-300 text-sm font-semibold">${new Date(log.administered_at).toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'})}</span>
-                                </div>
-                                <div class="text-right">
-                                  <span class="text-slate-500 text-xs">by ${caregivers.find(cg => cg.id === log.caregiver_id)?.name || 'Unknown'}</span>
-                                  ${log.notes ? `<span class="text-slate-400 text-xs ml-2">"${log.notes}"</span>` : ''}
-                                </div>
-                              </div>
-                            `).join('')
-                          }
-                        </div>
-                      ` : ''}
-                    </div>
                   </div>
                 `}).join('')
               }
@@ -701,45 +596,54 @@ function renderDashboard() {
 
           <!-- Right Column: Hydration & Team -->
           <div class="space-y-8">
-            <!-- Hydration Tracker (New Design) -->
-            <div class="bg-slate-800 rounded-3xl p-6 shadow-lg border border-slate-700">
-              <div class="flex gap-6">
-                <!-- Cup Visualization -->
-                <div class="relative w-24 h-32 border-4 border-slate-600 border-t-0 rounded-b-3xl overflow-hidden bg-slate-900/50 shrink-0">
-                  <!-- Liquid -->
-                  <div id="hydration-liquid" class="absolute bottom-0 left-0 right-0 bg-blue-500 transition-all duration-700 ease-in-out flex items-end" style="height: ${lastHydrationProgress}%">
-                    <div class="w-full h-2 bg-blue-400/30"></div>
+            <!-- Hydration Tracker (Glass Animation) -->
+            <div class="bg-blue-600 rounded-3xl p-5 text-white shadow-lg relative overflow-hidden">
+              <div class="relative z-10 flex justify-between items-center">
+                <div>
+                  <h2 class="text-lg font-semibold">Daily Hydration</h2>
+                  <p class="text-blue-100 text-sm">Goal: ${DAILY_HYDRATION_GOAL}oz</p>
+                  <div class="mt-4 flex items-baseline">
+                    <span class="text-3xl font-bold">${hydrationTotal}</span>
+                    <span class="text-sm ml-1 text-blue-100">oz</span>
                   </div>
-                  <!-- Glass Reflection -->
-                  <div class="absolute inset-0 bg-gradient-to-r from-white/5 to-transparent pointer-events-none"></div>
                 </div>
-
-                <!-- Info & Controls -->
-                <div class="flex-1 flex flex-col justify-between">
-                  <div>
-                    <h2 class="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Hydration</h2>
-                    <div class="flex items-baseline gap-1">
-                      <span class="text-4xl font-black text-white">${hydrationTotal}</span>
-                      <span class="text-slate-400 font-bold text-lg">oz</span>
+                <!-- Glass Animation - Starts empty, fills up as user drinks water -->
+                <div class="relative">
+                  <!-- Glass Container -->
+                  <div class="w-20 h-24 rounded-b-2xl rounded-t-lg border-4 border-white/30 flex items-end justify-center relative bg-blue-900/40 overflow-hidden shadow-inner">
+                    <!-- Water Level - Fills from bottom up -->
+                    <div class="w-full bg-gradient-to-t from-blue-400 to-blue-300 transition-all duration-700 ease-out relative" style="height: ${hydrationProgress}%">
+                      <!-- Water surface effect -->
+                      <div class="absolute top-0 left-0 right-0 h-2 bg-blue-200/50 rounded-full"></div>
+                      <!-- Bubbles animation -->
+                      <div class="absolute bottom-2 left-4 w-1 h-1 bg-white/30 rounded-full animate-pulse"></div>
+                      <div class="absolute bottom-4 right-6 w-1.5 h-1.5 bg-white/20 rounded-full animate-pulse" style="animation-delay: 0.5s"></div>
+                      <div class="absolute bottom-6 left-8 w-1 h-1 bg-white/25 rounded-full animate-pulse" style="animation-delay: 1s"></div>
                     </div>
-                    <p class="text-blue-500 text-xs font-bold mt-1">GOAL: ${DAILY_HYDRATION_GOAL}OZ</p>
+                    <!-- Glass shine effect -->
+                    <div class="absolute top-2 left-2 w-4 h-16 bg-gradient-to-b from-white/20 to-transparent rounded-full"></div>
+                    <!-- Water droplet icon -->
+                    <div class="absolute top-2 right-2 text-2xl opacity-80">💧</div>
                   </div>
-
-                  <div class="flex gap-2 mt-2">
-                    <button class="add-water-btn flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl text-sm transition-colors shadow-lg shadow-blue-900/20" data-amount="8">
-                      + 8oz
-                    </button>
-                    <button class="add-water-btn flex-1 bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 rounded-xl text-sm transition-colors border border-slate-600" data-amount="16">
-                      + 16oz
-                    </button>
-                  </div>
+                  <!-- Glass base -->
+                  <div class="w-20 h-1 bg-white/20 rounded-b-lg mt-0.5"></div>
                 </div>
               </div>
               
+              <!-- Quick Add Buttons -->
+              <div class="grid grid-cols-2 gap-2 mt-4">
+                <button class="add-water-btn bg-white text-blue-600 font-bold py-2 rounded-xl text-sm shadow-sm hover:bg-blue-50 transition-colors" data-amount="8">
+                  + 8oz
+                </button>
+                <button class="add-water-btn bg-white/20 text-white font-bold py-2 rounded-xl text-sm hover:bg-white/30 transition-colors" data-amount="16">
+                  + 16oz
+                </button>
+              </div>
+
               <!-- Recent Logs -->
-              <div class="mt-4 space-y-1 pt-4 border-t border-slate-700/50">
+              <div class="mt-4 space-y-1">
                 ${hydrationLogs.slice(0, 3).map(log => `
-                  <div class="flex justify-between items-center text-xs text-slate-400">
+                  <div class="flex justify-between items-center text-xs text-blue-100">
                     <span>${log.amount_oz}oz</span>
                     <div class="flex items-center gap-2">
                       <span>${new Date(log.logged_at).toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'})}</span>
@@ -759,63 +663,30 @@ function renderDashboard() {
                 </button>
               </div>
               
-              <div class="space-y-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+              <div class="space-y-3">
                 ${caregivers.map(cg => `
-                  <div class="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl mb-2">
+                  <div class="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl">
                     <div class="flex items-center gap-3">
-                      <div class="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center relative">
+                      <div class="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center">
                         <span class="text-blue-500 font-bold text-sm">${cg.name?.charAt(0).toUpperCase() || '?'}</span>
-                        ${cg.is_admin ? '<div class="absolute -top-1 -right-1 w-3 h-3 bg-amber-500 rounded-full border-2 border-slate-900" title="Admin"></div>' : ''}
                       </div>
                       <div>
-                        <p class="text-slate-200 text-sm font-semibold flex items-center gap-2">
-                          ${cg.name || 'Unnamed'}
-                          ${cg.is_admin ? '<span class="text-[10px] text-amber-500 font-bold bg-amber-500/10 px-1 rounded">ADMIN</span>' : ''}
-                        </p>
+                        <p class="text-slate-200 text-sm font-semibold">${cg.name || 'Unnamed'}</p>
                         <p class="text-slate-500 text-xs">${cg.email}</p>
                       </div>
                     </div>
-                    <div class="flex items-center gap-2">
-                      ${cg.id !== currentUser.id ? `
-                        ${isAdmin ? `
-                          <button class="remove-member-btn text-red-400 hover:text-red-300 p-1" title="Remove" data-id="${cg.id}">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                              <polyline points="3 6 5 6 21 6"></polyline>
-                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                            </svg>
-                          </button>
-                        ` : ''}
-                      ` : '<span class="text-xs text-blue-400 font-bold px-2 py-1 bg-blue-500/10 rounded">YOU</span>'}
-                    </div>
+                    ${cg.id !== currentUser.id ? `
+                      <button class="remove-member-btn text-red-400 hover:text-red-300 p-1" data-id="${cg.id}">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <polyline points="3 6 5 6 21 6"></polyline>
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        </svg>
+                      </button>
+                    ` : '<span class="text-xs text-amber-500 font-bold px-2 py-1 bg-amber-500/10 rounded">YOU</span>'}
                   </div>
                 `).join('')}
               </div>
             </div>
-
-            <!-- Admin Controls -->
-            ${isAdmin ? `
-              <div class="bg-slate-800 p-6 rounded-2xl border border-amber-500/30 mt-8">
-                <h2 class="text-xl font-bold text-amber-500 mb-4">Admin Controls</h2>
-                
-                <div class="space-y-4">
-                  <div>
-                    <label class="block text-slate-400 text-sm mb-2">Transfer Admin Rights</label>
-                    <div class="flex gap-2">
-                      <select id="admin-transfer-select" class="flex-1 bg-slate-900 text-slate-200 rounded-xl px-4 py-3 border border-slate-700 outline-none focus:border-amber-500">
-                        <option value="">Select a team member...</option>
-                        ${caregivers.filter(c => c.id !== currentUser.id).map(c => `
-                          <option value="${c.id}">${c.name || c.email}</option>
-                        `).join('')}
-                      </select>
-                      <button id="transfer-admin-btn" class="bg-amber-500/20 text-amber-500 font-bold px-6 py-3 rounded-xl hover:bg-amber-500/30 transition-colors">
-                        Transfer
-                      </button>
-                    </div>
-                    <p class="text-xs text-slate-500 mt-2">Warning: You will lose administrator privileges after transferring.</p>
-                  </div>
-                </div>
-              </div>
-            ` : ''}
           </div>
         </div>
         
@@ -834,15 +705,6 @@ Supabase: ${SUPABASE_URL}
     </div>
   `;
   
-  // Animate hydration liquid
-  setTimeout(() => {
-    const liquid = document.getElementById('hydration-liquid');
-    if (liquid) {
-      liquid.style.height = `${hydrationProgress}%`;
-    }
-  }, 50);
-  lastHydrationProgress = hydrationProgress;
-
   // Attach event listeners
   document.getElementById('logout-btn').addEventListener('click', handleLogout);
   document.getElementById('add-med-btn').addEventListener('click', handleAddMedication);
@@ -853,31 +715,10 @@ Supabase: ${SUPABASE_URL}
     btn.addEventListener('click', () => handleMarkTaken(btn.dataset.medId));
   });
 
-  // Edit Medication buttons
-  document.querySelectorAll('.edit-med-btn').forEach(btn => {
-    btn.addEventListener('click', () => handleEditMedication(btn.dataset.medId));
-  });
-
-  // Delete Medication buttons
-  document.querySelectorAll('.delete-med-btn').forEach(btn => {
-    btn.addEventListener('click', () => handleDeleteMedication(btn.dataset.medId));
-  });
-
-  // Toggle History buttons
-  document.querySelectorAll('.toggle-history-btn').forEach(btn => {
-    btn.addEventListener('click', () => toggleMedHistory(btn.dataset.medId));
-  });
-
   // Add Water buttons
   document.querySelectorAll('.add-water-btn').forEach(btn => {
     btn.addEventListener('click', () => handleAddWater(parseInt(btn.dataset.amount)));
   });
-
-  // Reset Water button
-  const resetBtn = document.getElementById('reset-water-btn');
-  if (resetBtn) {
-    resetBtn.addEventListener('click', handleResetHydration);
-  }
 
   // Delete Water buttons
   document.querySelectorAll('.delete-water-btn').forEach(btn => {
@@ -889,41 +730,15 @@ Supabase: ${SUPABASE_URL}
     btn.addEventListener('click', () => handleRemoveCaregiver(btn.dataset.id));
   });
 
-  // Transfer Admin button (Dropdown)
-  const transferBtn = document.getElementById('transfer-admin-btn');
-  if (transferBtn) {
-    transferBtn.addEventListener('click', () => {
-      const select = document.getElementById('admin-transfer-select');
-      if (select && select.value) {
-        handleTransferAdmin(select.value);
-      } else {
-        alert('Please select a team member to transfer admin rights to.');
-      }
-    });
-  }
-}
+  // Edit Medication buttons
+  document.querySelectorAll('.edit-med-btn').forEach(btn => {
+    btn.addEventListener('click', () => handleEditMedication(btn.dataset.medId));
+  });
 
-// Handle Transfer Admin
-async function handleTransferAdmin(newAdminId) {
-  if (!confirm('Are you sure you want to transfer admin rights? You will lose your administrator privileges.')) return;
-
-  try {
-    // 1. Make new user admin
-    const { error: promoteError } = await supabase.from('caregivers').update({ is_admin: true }).eq('id', newAdminId);
-    if (promoteError) throw promoteError;
-
-    // 2. Remove admin from current user
-    const { error: demoteError } = await supabase.from('caregivers').update({ is_admin: false }).eq('id', currentUser.id);
-    if (demoteError) throw demoteError;
-
-    // 3. Update local state
-    isAdmin = false;
-    await loadCaregivers();
-    renderDashboard();
-    alert('Admin rights transferred successfully.');
-  } catch (err) {
-    alert('Error transferring admin rights: ' + err.message);
-  }
+  // Delete Medication buttons
+  document.querySelectorAll('.delete-med-btn').forEach(btn => {
+    btn.addEventListener('click', () => handleDeleteMedication(btn.dataset.medId));
+  });
 }
 
 // Handle Add Medication
@@ -1003,18 +818,31 @@ async function handleAddMedication() {
   }
 }
 
-// Handle Delete Medication
-async function handleDeleteMedication(medId) {
-  if (!confirm('Are you sure you want to delete this medication?')) return;
+// Handle Mark as Taken
+async function handleMarkTaken(medId) {
+  console.log('CareCircle: Marking medication as taken:', medId);
   
   try {
-    const { error } = await supabase.from('medications').delete().eq('id', medId);
-    if (error) throw error;
+    const now = new Date();
+    const windowStart = new Date(now.getTime() - 4 * 60 * 60 * 1000); // 4 hours before
+    const windowEnd = new Date(now.getTime() + 4 * 60 * 60 * 1000); // 4 hours after
     
-    await loadMedications();
-    renderDashboard();
+    const { error } = await supabase.from('med_logs').insert({
+      med_id: medId,
+      caregiver_id: currentUser?.id,
+      window_start: windowStart.toISOString(),
+      window_end: windowEnd.toISOString()
+    });
+    
+    if (error) {
+      alert('Failed to log dose: ' + error.message);
+      return;
+    }
+    
+    // Success - UI will update via realtime or reload
+    await loadDashboard();
   } catch (err) {
-    alert('Error deleting medication: ' + err.message);
+    alert('Error logging dose: ' + err.message);
   }
 }
 
@@ -1032,7 +860,7 @@ async function handleEditMedication(medId) {
   const frequency = prompt('Frequency in hours (e.g., 8 for every 8 hours):', med.frequency_hours);
   if (!frequency) return;
   
-  const instructions = prompt('Instructions (optional):', med.instructions) || '';
+  const instructions = prompt('Instructions (optional):', med.instructions || '') || '';
   
   console.log('CareCircle: Editing medication:', { medId, name, dosage, frequency, instructions });
   
@@ -1056,41 +884,25 @@ async function handleEditMedication(medId) {
   }
 }
 
-// Handle Mark as Taken
-async function handleMarkTaken(medId) {
-  console.log('CareCircle: Marking medication as taken:', medId);
+// Handle Delete Medication
+async function handleDeleteMedication(medId) {
+  if (!confirm('Are you sure you want to delete this medication? This action cannot be undone.')) return;
+  
+  console.log('CareCircle: Deleting medication:', medId);
   
   try {
-    const now = new Date();
-    const windowStart = new Date(now.getTime() - 4 * 60 * 60 * 1000); // 4 hours before
-    const windowEnd = new Date(now.getTime() + 4 * 60 * 60 * 1000); // 4 hours after
-    
-    const notes = prompt('Add notes (optional):') || '';
-    
-    const { error } = await supabase.from('med_logs').insert({
-      med_id: medId,
-      caregiver_id: currentUser?.id,
-      window_start: windowStart.toISOString(),
-      window_end: windowEnd.toISOString(),
-      notes: notes
-    });
+    const { error } = await supabase.from('medications').delete().eq('id', medId);
     
     if (error) {
-      alert('Failed to log dose: ' + error.message);
+      alert('Failed to delete medication: ' + error.message);
       return;
     }
     
-    // Success - Force immediate reload
-    await loadDashboard();
+    await loadMedications();
+    renderDashboard();
   } catch (err) {
-    alert('Error logging dose: ' + err.message);
+    alert('Error deleting medication: ' + err.message);
   }
-}
-
-// Toggle medication history visibility
-function toggleMedHistory(medId) {
-  showMedHistory[medId] = !showMedHistory[medId];
-  renderDashboard();
 }
 
 // Handle Logout
