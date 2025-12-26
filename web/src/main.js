@@ -442,10 +442,22 @@ async function loadHydrationLogs() {
 // Handle Add Water
 async function handleAddWater(amount) {
   try {
+    // Find the caregiver record for the current user
+    const { data: caregiver } = await supabase
+      .from('caregivers')
+      .select('id')
+      .eq('id', currentUser.id)
+      .single();
+
+    if (!caregiver) {
+      alert('Error: Caregiver profile not found. Please try logging out and back in.');
+      return;
+    }
+
     const { error } = await supabase.from('hydration_logs').insert({
       amount_oz: amount,
       logged_at: new Date().toISOString(),
-      caregiver_id: currentUser.id
+      caregiver_id: caregiver.id
     });
 
     if (error) throw error;
