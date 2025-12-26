@@ -618,6 +618,8 @@ function renderDashboard() {
                   const lastLog = medLogs.find(log => log.med_id === med.id);
                   let isTaken = false;
                   let nextDue = null;
+                  let isOverdue = false;
+                  let timeRemaining = null;
                   
                   if (lastLog) {
                     const lastTaken = new Date(lastLog.administered_at);
@@ -627,6 +629,36 @@ function renderDashboard() {
                     if (hoursSince < med.frequency_hours) {
                       isTaken = true;
                       nextDue = new Date(lastTaken.getTime() + med.frequency_hours * 60 * 60 * 1000);
+                    } else {
+                      // Medication is overdue
+                      isOverdue = true;
+                      nextDue = new Date(lastTaken.getTime() + med.frequency_hours * 60 * 60 * 1000);
+                      const overdueMs = now - nextDue;
+                      const overdueHours = Math.floor(overdueMs / (1000 * 60 * 60));
+                      const overdueMins = Math.floor((overdueMs % (1000 * 60 * 60)) / (1000 * 60));
+                      timeRemaining = { hours: overdueHours, minutes: overdueMins, overdue: true };
+                    }
+                  } else {
+                    // No dose logged yet - calculate from start date or show as due now
+                    if (med.start_date) {
+                      const startDate = new Date(med.start_date);
+                      const now = new Date();
+                      const hoursSinceStart = (now - startDate) / (1000 * 60 * 60);
+                      const cyclesSince = Math.floor(hoursSinceStart / med.frequency_hours);
+                      nextDue = new Date(startDate.getTime() + (cyclesSince + 1) * med.frequency_hours * 60 * 60 * 1000);
+                      
+                      if (now > nextDue) {
+                        isOverdue = true;
+                        const overdueMs = now - nextDue;
+                        const overdueHours = Math.floor(overdueMs / (1000 * 60 * 60));
+                        const overdueMins = Math.floor((overdueMs % (1000 * 60 * 60)) / (1000 * 60));
+                        timeRemaining = { hours: overdueHours, minutes: overdueMins, overdue: true };
+                      } else {
+                        const remainingMs = nextDue - now;
+                        const remainingHours = Math.floor(remainingMs / (1000 * 60 * 60));
+                        const remainingMins = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+                        timeRemaining = { hours: remainingHours, minutes: remainingMins, overdue: false };
+                      }
                     }
                   }
 
@@ -635,7 +667,7 @@ function renderDashboard() {
                   const isExpanded = showMedHistory[med.id] || false;
 
                   return `
-                  <div class="bg-slate-800 p-6 rounded-2xl mb-4 border border-slate-700 ${isTaken ? 'opacity-75' : ''}">
+                  <div class="bg-slate-800 p-6 rounded-2xl mb-4 border ${isOverdue ? 'border-red-500' : 'border-slate-700'} ${isTaken ? 'opacity-75' : ''}">
                     <div class="flex justify-between items-start">
                       <div>
                         <h3 class="text-xl font-bold text-slate-100">${med.name}</h3>
@@ -643,6 +675,7 @@ function renderDashboard() {
                         <p class="text-slate-500 text-sm mt-1">${med.instructions || 'No instructions'}</p>
                       </div>
                       <div class="flex gap-2">
+                        ${isOverdue ? '<span class="bg-red-500/20 text-red-500 text-xs font-bold px-2 py-1 rounded-full">OVERDUE</span>' : ''}
                         ${isTaken ? '<span class="bg-green-500/20 text-green-500 text-xs font-bold px-2 py-1 rounded-full">TAKEN</span>' : ''}
                         <button class="edit-med-btn text-blue-400 hover:text-blue-300 text-xs font-semibold" data-med-id="${med.id}">
                           Edit
@@ -658,11 +691,23 @@ function renderDashboard() {
                         <p class="text-slate-400 text-sm">Last dose taken at</p>
                         <p class="text-slate-200 font-bold">${lastLog.administered_at ? new Date(lastLog.administered_at).toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'}) : 'N/A'}</p>
                       </div>
-                    ` : `
+                    ` : isOverdue ? `
+                      <div class="mt-4 p-3 bg-red-500/10 rounded-xl border border-red-500/30 text-center">
+                        <p class="text-red-400 text-sm">Overdue by</p>
+                        <p class="text-red-200 font-bold">${timeRemaining?.hours || 0}h ${timeRemaining?.minutes || 0}m</p>
+                      </div>
+                    ` : timeRemaining && !isTaken ? `
+                      <div class="mt-4 p-3 bg-blue-500/10 rounded-xl border border-blue-500/30 text-center">
+                        <p class="text-blue-400 text-sm">Next dose due in</p>
+                        <p class="text-blue-200 font-bold">${timeRemaining?.hours || 0}h ${timeRemaining?.minutes || 0}m</p>
+                      </div>
+                    ` : ''}
+                    
+                    ${!isTaken ? `
                       <button class="mark-taken-btn w-full mt-4 bg-green-500/10 text-green-500 hover:bg-green-500/20 font-bold py-3 rounded-xl transition-colors" data-med-id="${med.id}">
                         ✓ Mark as Taken
                       </button>
-                    `}
+                    ` : ''}
 
                     <!-- Collapsible History Section -->
                     <div class="mt-4">
@@ -1065,14 +1110,11 @@ async function handleMarkTaken(medId) {
     const windowStart = new Date(now.getTime() - 4 * 60 * 60 * 1000); // 4 hours before
     const windowEnd = new Date(now.getTime() + 4 * 60 * 60 * 1000); // 4 hours after
     
-    const notes = prompt('Add notes (optional):') || '';
-    
     const { error } = await supabase.from('med_logs').insert({
       med_id: medId,
       caregiver_id: currentUser?.id,
       window_start: windowStart.toISOString(),
-      window_end: windowEnd.toISOString(),
-      notes: notes
+      window_end: windowEnd.toISOString()
     });
     
     if (error) {
