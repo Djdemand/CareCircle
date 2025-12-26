@@ -442,22 +442,48 @@ async function loadHydrationLogs() {
 // Handle Add Water
 async function handleAddWater(amount) {
   try {
-    // Find the caregiver record for the current user
-    const { data: caregiver } = await supabase
+    // BMAD: Fix - Find or create caregiver record for the current user
+    let caregiverRecordId = currentUser?.id;
+    
+    // Try to find a caregiver record matching the user's email
+    const { data: existingCaregiver, error: fetchError } = await supabase
       .from('caregivers')
       .select('id')
-      .eq('id', currentUser.id)
+      .eq('email', currentUser?.email)
       .single();
 
-    if (!caregiver) {
-      alert('Error: Caregiver profile not found. Please try logging out and back in.');
-      return;
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      // PGRST116 is "not found", which is expected if the user is new
+      console.error('CareCircle: Error fetching caregiver:', fetchError);
+    }
+
+    if (existingCaregiver) {
+      caregiverRecordId = existingCaregiver.id;
+    } else {
+      // Create a new caregiver record for this user
+      const { data: newCaregiver, error: insertError } = await supabase
+        .from('caregivers')
+        .insert({
+          email: currentUser?.email,
+          name: currentUser?.email?.split('@')[0] || 'User'
+        })
+        .select('id')
+        .single();
+
+      if (insertError) {
+        alert('Failed to create caregiver profile: ' + insertError.message);
+        return;
+      }
+
+      if (newCaregiver) {
+        caregiverRecordId = newCaregiver.id;
+      }
     }
 
     const { error } = await supabase.from('hydration_logs').insert({
       amount_oz: amount,
       logged_at: new Date().toISOString(),
-      caregiver_id: caregiver.id
+      caregiver_id: caregiverRecordId
     });
 
     if (error) throw error;
@@ -690,16 +716,19 @@ function renderDashboard() {
                       <div class="mt-4 p-3 bg-slate-900/50 rounded-xl border border-slate-700/50 text-center">
                         <p class="text-slate-400 text-sm">Last dose taken at</p>
                         <p class="text-slate-200 font-bold">${lastLog.administered_at ? new Date(lastLog.administered_at).toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'}) : 'N/A'}</p>
+                        ${nextDue ? `<p class="text-slate-400 text-xs mt-2">Please take next dose at ${nextDue.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'})} ${nextDue.toLocaleDateString([], {month: 'short', day: 'numeric', year: 'numeric'})}</p>` : ''}
                       </div>
                     ` : isOverdue ? `
                       <div class="mt-4 p-3 bg-red-500/10 rounded-xl border border-red-500/30 text-center">
                         <p class="text-red-400 text-sm">Overdue by</p>
                         <p class="text-red-200 font-bold">${timeRemaining?.hours || 0}h ${timeRemaining?.minutes || 0}m</p>
+                        ${nextDue ? `<p class="text-red-400 text-xs mt-2">Please take next dose at ${nextDue.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'})} ${nextDue.toLocaleDateString([], {month: 'short', day: 'numeric', year: 'numeric'})}</p>` : ''}
                       </div>
                     ` : timeRemaining && !isTaken ? `
                       <div class="mt-4 p-3 bg-blue-500/10 rounded-xl border border-blue-500/30 text-center">
                         <p class="text-blue-400 text-sm">Next dose due in</p>
                         <p class="text-blue-200 font-bold">${timeRemaining?.hours || 0}h ${timeRemaining?.minutes || 0}m</p>
+                        ${nextDue ? `<p class="text-blue-400 text-xs mt-2">Please take next dose at ${nextDue.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'})} ${nextDue.toLocaleDateString([], {month: 'short', day: 'numeric', year: 'numeric'})}</p>` : ''}
                       </div>
                     ` : ''}
                     
@@ -1106,13 +1135,51 @@ async function handleMarkTaken(medId) {
   console.log('CareCircle: Marking medication as taken:', medId);
   
   try {
+    // BMAD: Fix - Find or create caregiver record for the current user
+    let caregiverRecordId = currentUser?.id;
+    
+    // Try to find a caregiver record matching the user's email
+    const { data: existingCaregiver, error: fetchError } = await supabase
+      .from('caregivers')
+      .select('id')
+      .eq('email', currentUser?.email)
+      .single();
+
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      // PGRST116 is "not found", which is expected if the user is new
+      console.error('CareCircle: Error fetching caregiver:', fetchError);
+    }
+
+    if (existingCaregiver) {
+      caregiverRecordId = existingCaregiver.id;
+    } else {
+      // Create a new caregiver record for this user
+      const { data: newCaregiver, error: insertError } = await supabase
+        .from('caregivers')
+        .insert({
+          email: currentUser?.email,
+          name: currentUser?.email?.split('@')[0] || 'User'
+        })
+        .select('id')
+        .single();
+
+      if (insertError) {
+        alert('Failed to create caregiver profile: ' + insertError.message);
+        return;
+      }
+
+      if (newCaregiver) {
+        caregiverRecordId = newCaregiver.id;
+      }
+    }
+
     const now = new Date();
     const windowStart = new Date(now.getTime() - 4 * 60 * 60 * 1000); // 4 hours before
     const windowEnd = new Date(now.getTime() + 4 * 60 * 60 * 1000); // 4 hours after
     
     const { error } = await supabase.from('med_logs').insert({
       med_id: medId,
-      caregiver_id: currentUser?.id,
+      caregiver_id: caregiverRecordId,
       window_start: windowStart.toISOString(),
       window_end: windowEnd.toISOString()
     });
