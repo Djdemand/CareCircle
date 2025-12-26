@@ -710,12 +710,51 @@ async function handleAddMedication() {
   console.log('CareCircle: Adding medication:', { name, dosage, frequency, instructions });
   
   try {
+    // BMAD: Fix - Ensure caregiver record exists before adding medication
+    let caregiverRecordId = currentUser?.id;
+    
+    // Try to find a caregiver record matching the user's email
+    const { data: existingCaregiver, error: fetchError } = await supabase
+      .from('caregivers')
+      .select('id')
+      .eq('email', currentUser?.email)
+      .single();
+
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      // PGRST116 is "not found", which is expected if the user is new
+      console.error('CareCircle: Error fetching caregiver:', fetchError);
+    }
+
+    if (existingCaregiver) {
+      caregiverRecordId = existingCaregiver.id;
+    } else {
+      // Create a new caregiver record for this user
+      const { data: newCaregiver, error: insertError } = await supabase
+        .from('caregivers')
+        .insert({
+          email: currentUser?.email,
+          name: currentUser?.email?.split('@')[0] || 'User'
+        })
+        .select('id')
+        .single();
+
+      if (insertError) {
+        alert('Failed to create caregiver profile: ' + insertError.message);
+        return;
+      }
+
+      if (newCaregiver) {
+        caregiverRecordId = newCaregiver.id;
+      }
+    }
+
+    // Now insert the medication using the correct caregivers table ID
     const { error } = await supabase.from('medications').insert({
       name,
       dosage,
       frequency_hours: parseInt(frequency),
       instructions,
-      created_by: currentUser?.id,
+      created_by: caregiverRecordId,
       start_date: new Date().toISOString(),
       duration_days: 30
     });
