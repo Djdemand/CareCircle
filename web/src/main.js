@@ -33,8 +33,10 @@ let hydrationLogs = [];
 let isSignupMode = false;
 let showMedHistory = {}; // Track which medication history is expanded
 let isAdmin = false; // Track if current user is administrator
-const DAILY_HYDRATION_GOAL = 64; // 64oz (approx 2 liters)
+const DAILY_HYDRATION_GOAL = 128; // 128oz (1 gallon)
 let lastHydrationProgress = 0; // Track last hydration progress for animation
+let showHowToUse = false; // Track if "How to use" guide is expanded
+let isFirstLogin = false; // Track if this is the user's first login
 
 // Initialize app
 async function init() {
@@ -285,7 +287,8 @@ async function loadDashboard() {
         id: currentUser.id,
         email: currentUser.email,
         name: currentUser.email.split('@')[0],
-        is_admin: shouldBeAdmin
+        is_admin: shouldBeAdmin,
+        first_login: true
       });
       
       if (createError) {
@@ -293,9 +296,15 @@ async function loadDashboard() {
       }
       
       isAdmin = shouldBeAdmin;
+      isFirstLogin = true;
+      showHowToUse = true;
     } else {
       // Check if user is administrator
       isAdmin = profile.is_admin || false;
+      
+      // Check if this is first login
+      isFirstLogin = profile.first_login || false;
+      showHowToUse = isFirstLogin;
       
       // Fallback: If no admin exists in the system, make this user admin
       if (!isAdmin) {
@@ -604,9 +613,76 @@ function renderDashboard() {
             </h1>
             <p class="text-slate-400">${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
           </div>
-          <button id="logout-btn" class="bg-red-500/10 text-red-500 px-4 py-2 rounded-lg font-semibold hover:bg-red-500/20 transition-colors">
-            Logout
-          </button>
+          <div class="flex items-center gap-2">
+            <button id="how-to-use-btn" class="bg-blue-500/10 text-blue-500 px-4 py-2 rounded-lg font-semibold hover:bg-blue-500/20 transition-colors">
+              How to Use
+            </button>
+            <button id="logout-btn" class="bg-red-500/10 text-red-500 px-4 py-2 rounded-lg font-semibold hover:bg-red-500/20 transition-colors">
+              Logout
+            </button>
+          </div>
+        </div>
+
+        <!-- How to Use Guide (Collapsible) -->
+        <div id="how-to-use-guide" class="mb-8 ${showHowToUse ? '' : 'hidden'}">
+          <div class="bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-2xl border border-blue-500/30 p-6">
+            <div class="flex justify-between items-start mb-4">
+              <h2 class="text-xl font-bold text-blue-400">📖 How to Use CareCircle</h2>
+              <button id="close-how-to-use" class="text-slate-400 hover:text-white">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            </div>
+            <div class="space-y-4 text-slate-300">
+              <div class="flex gap-3">
+                <div class="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center shrink-0">
+                  <span class="text-blue-400 font-bold">1</span>
+                </div>
+                <div>
+                  <h3 class="font-semibold text-slate-200">Add Medications</h3>
+                  <p class="text-sm">Click the "+ Add Medication" button to add medications with dosage, frequency, and instructions.</p>
+                </div>
+              </div>
+              <div class="flex gap-3">
+                <div class="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center shrink-0">
+                  <span class="text-blue-400 font-bold">2</span>
+                </div>
+                <div>
+                  <h3 class="font-semibold text-slate-200">Track Medications</h3>
+                  <p class="text-sm">Mark medications as taken when administered. The countdown timer starts after marking as taken.</p>
+                </div>
+              </div>
+              <div class="flex gap-3">
+                <div class="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center shrink-0">
+                  <span class="text-blue-400 font-bold">3</span>
+                </div>
+                <div>
+                  <h3 class="font-semibold text-slate-200">Monitor Hydration</h3>
+                  <p class="text-sm">Track water intake using the hydration tracker. Enter custom oz amounts (max 1 gallon/128oz per day).</p>
+                </div>
+              </div>
+              <div class="flex gap-3">
+                <div class="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center shrink-0">
+                  <span class="text-blue-400 font-bold">4</span>
+                </div>
+                <div>
+                  <h3 class="font-semibold text-slate-200">Manage Team</h3>
+                  <p class="text-sm">Invite up to 15 caregivers to your team. Admin can transfer admin rights to other team members.</p>
+                </div>
+              </div>
+              <div class="flex gap-3">
+                <div class="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center shrink-0">
+                  <span class="text-blue-400 font-bold">5</span>
+                </div>
+                <div>
+                  <h3 class="font-semibold text-slate-200">View History</h3>
+                  <p class="text-sm">Click the "History" button on each medication to see all past doses and who administered them.</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
         
         <!-- Stats -->
@@ -655,6 +731,10 @@ function renderDashboard() {
                     if (hoursSince < med.frequency_hours) {
                       isTaken = true;
                       nextDue = new Date(lastTaken.getTime() + med.frequency_hours * 60 * 60 * 1000);
+                      const remainingMs = nextDue - now;
+                      const remainingHours = Math.floor(remainingMs / (1000 * 60 * 60));
+                      const remainingMins = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+                      timeRemaining = { hours: remainingHours, minutes: remainingMins, overdue: false };
                     } else {
                       // Medication is overdue
                       isOverdue = true;
@@ -664,29 +744,8 @@ function renderDashboard() {
                       const overdueMins = Math.floor((overdueMs % (1000 * 60 * 60)) / (1000 * 60));
                       timeRemaining = { hours: overdueHours, minutes: overdueMins, overdue: true };
                     }
-                  } else {
-                    // No dose logged yet - calculate from start date or show as due now
-                    if (med.start_date) {
-                      const startDate = new Date(med.start_date);
-                      const now = new Date();
-                      const hoursSinceStart = (now - startDate) / (1000 * 60 * 60);
-                      const cyclesSince = Math.floor(hoursSinceStart / med.frequency_hours);
-                      nextDue = new Date(startDate.getTime() + (cyclesSince + 1) * med.frequency_hours * 60 * 60 * 1000);
-                      
-                      if (now > nextDue) {
-                        isOverdue = true;
-                        const overdueMs = now - nextDue;
-                        const overdueHours = Math.floor(overdueMs / (1000 * 60 * 60));
-                        const overdueMins = Math.floor((overdueMs % (1000 * 60 * 60)) / (1000 * 60));
-                        timeRemaining = { hours: overdueHours, minutes: overdueMins, overdue: true };
-                      } else {
-                        const remainingMs = nextDue - now;
-                        const remainingHours = Math.floor(remainingMs / (1000 * 60 * 60));
-                        const remainingMins = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
-                        timeRemaining = { hours: remainingHours, minutes: remainingMins, overdue: false };
-                      }
-                    }
                   }
+                  // Note: No countdown timer shown if medication hasn't been taken yet
 
                   // Get all logs for this medication
                   const medHistory = medLogs.filter(log => log.med_id === med.id);
@@ -806,6 +865,21 @@ function renderDashboard() {
                     <button class="add-water-btn flex-1 bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 rounded-xl text-sm transition-colors border border-slate-600" data-amount="16">
                       + 16oz
                     </button>
+                    <button class="add-water-btn flex-1 bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 rounded-xl text-sm transition-colors border border-slate-600" data-amount="32">
+                      + 32oz
+                    </button>
+                    <button class="add-water-btn flex-1 bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 rounded-xl text-sm transition-colors border border-slate-600" data-amount="64">
+                      + 64oz
+                    </button>
+                    <button class="add-water-btn flex-1 bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 rounded-xl text-sm transition-colors border border-slate-600" data-amount="128">
+                      + 128oz
+                    </button>
+                  </div>
+                  
+                  <div class="mt-4 pt-4 border-t border-slate-700/50">
+                    <button id="reset-water-btn" class="w-full bg-red-500/10 text-red-500 hover:bg-red-500/20 font-bold py-3 rounded-xl transition-colors">
+                      Reset Today's Hydration
+                    </button>
                   </div>
                 </div>
               </div>
@@ -919,6 +993,19 @@ Supabase: ${SUPABASE_URL}
 
   // Attach event listeners
   document.getElementById('logout-btn').addEventListener('click', handleLogout);
+  document.getElementById('how-to-use-btn').addEventListener('click', () => {
+    showHowToUse = !showHowToUse;
+    renderDashboard();
+  });
+  document.getElementById('close-how-to-use')?.addEventListener('click', () => {
+    showHowToUse = false;
+    // Mark first login as complete
+    if (isFirstLogin) {
+      supabase.from('caregivers').update({ first_login: false }).eq('id', currentUser.id);
+      isFirstLogin = false;
+    }
+    renderDashboard();
+  });
   document.getElementById('add-med-btn').addEventListener('click', handleAddMedication);
   document.getElementById('invite-btn').addEventListener('click', handleInviteCaregiver);
   

@@ -1,15 +1,15 @@
 ﻿# CareCircle - Medicine Care Team App
- 
- ![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)
+
+![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
 ## 📋 Project Overview
 
-CareCircle is a **multi-platform** application designed for clinical and home care teams (up to 5 users) to coordinate medication administration and hydration tracking for a patient. The app provides real-time synchronization across multiple devices, preventing double-dosing and ensuring safe medication management.
+CareCircle is a **multi-platform** application designed for clinical and home care teams (up to 15 users) to coordinate medication administration and hydration tracking for a patient. The app provides real-time synchronization across multiple devices, preventing double-dosing and ensuring safe medication management.
 
 ### Key Features
  
- ✅ **Real-Time Team Synchronization** - Live updates across all 5 caregiver devices
+ ✅ **Real-Time Team Synchronization** - Live updates across all 15 caregiver devices
  ✅ **Duplicate Dose Prevention** - Deterministic dose window locking to prevent double-dosing
  ✅ **Push Notifications** - Team-wide reminders for medication schedules
  ✅ **Hydration Tracking** - Shared water intake logs with visual progress indicators and glass effect
@@ -234,6 +234,45 @@ See [`supabase/setup.sql`](supabase/setup.sql) for complete schema definition.
 
 The web app is ready for deployment to Netlify with all features working.
 
+## 🎯 Recommended Features for Future Consideration
+
+### 1. Enhanced Medication Management
+- **Medication Reminders**: Push notifications for upcoming doses
+- **Medication Interactions**: Check for drug interactions between medications
+- **Refill Alerts**: Notify when medication supply is running low
+- **Medication History Export**: Export medication history to PDF/CSV
+- **Custom Dosage Schedules**: Different dosages for different times of day
+
+### 2. Advanced Hydration Tracking
+- **Hydration Goals**: Customizable daily goals based on weight/activity
+- **Hydration Reminders**: Scheduled reminders throughout the day
+- **Beverage Tracking**: Track different types of beverages (water, juice, tea)
+- **Hydration Charts**: Visual charts showing hydration patterns over time
+
+### 3. Team Collaboration Features
+- **Task Assignment**: Assign specific medications to specific caregivers
+- **Shift Scheduling**: Support for rotating caregiver shifts
+- **Caregiver Performance Metrics**: Track response times and accuracy
+- **Secure Messaging**: In-app messaging between team members
+
+### 4. Patient Safety Features
+- **Allergy Alerts**: Warn about medication allergies
+- **Emergency Contacts**: Quick access to emergency contacts
+- **Vital Signs Integration**: Track blood pressure, heart rate alongside medications
+- **Fall Detection**: Integration with wearable devices for fall alerts
+
+### 5. Reporting & Analytics
+- **Compliance Reports**: Track medication adherence over time
+- **Caregiver Activity Logs**: Detailed audit trail of all actions
+- **Patient Health Trends**: Visual graphs showing health improvements
+- **Export to EHR**: Integration with Electronic Health Records
+
+### 6. User Experience Improvements
+- **Dark Mode**: System-wide dark theme support
+- **Accessibility**: WCAG 2.1 AA compliance for screen readers
+- **Multi-language Support**: Spanish, French, German, etc.
+- **Offline Mode**: Basic functionality without internet connection
+
 ### Quick Deploy to Netlify
 
 ```bash
@@ -316,7 +355,7 @@ The application now includes:
 - ✅ Real-time medication tracking across team devices
 - ✅ Add, edit, and delete medications
 - ✅ Hydration tracking with glass filling animation
-- ✅ Team management (up to 5 caregivers)
+- ✅ Team management (up to 15 caregivers)
 - ✅ User profile management
 - ✅ Dark theme UI optimized for care environments
 - ✅ Countdown timer showing time until next dose
