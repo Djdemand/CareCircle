@@ -8,3 +8,4 @@ Step 7: Reimagined hydration tracking with a dynamic Glass of Water filling anim
 Step 8: Implemented production core modules: Persistent Auth, Push Notifications, Team Invitation service, and live Medication management
 Step 9: Version 3.3.0 Release - Added "As Needed" medications, Skip Dose functionality, Custom Hydration Goals, and Delete Individual Logs
 Step 10: Version 3.4.0 Release - Added Drag-and-Drop medication reordering, Mobile-friendly UI improvements, Status badges moved to top-left, "8 oz" spacing fix, Mandatory medication flag with Yes/No dialog, and Real-time refresh across devices.
+Step 11: Version 3.4.1 Patch - Fixed medication positioning logic (new items at top), corrected "8 oz" button spacing in web app, and resolved schema cache issues.

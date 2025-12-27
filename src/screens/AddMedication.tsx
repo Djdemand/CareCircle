@@ -86,17 +86,17 @@ export const AddMedication = ({ route, navigation }: Props) => {
       }
     }
 
-    // Get current max position for new medications
+    // Get current min position for new medications (to add at top)
     let position = 0;
     if (!editingMedication) {
       const { data: existingMeds } = await supabase
         .from('medications')
         .select('position')
-        .order('position', { ascending: false })
+        .order('position', { ascending: true })
         .limit(1);
       
       if (existingMeds && existingMeds.length > 0) {
-        position = (existingMeds[0].position || 0) + 1;
+        position = (existingMeds[0].position || 0) - 1;
       }
     } else {
       position = editingMedication.position || 0;
