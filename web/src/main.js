@@ -451,20 +451,23 @@ function setupRealtimeSubscription() {
         renderDashboard();
         // If new message, flash and focus
         if (payload.eventType === 'INSERT') {
-          const msgPanel = document.getElementById('messages-content');
-          const container = msgPanel?.closest('.bg-slate-800');
-          if (container) {
-            // Expand if collapsed
-            showMessagesPanel = true;
-            renderDashboard(); // Re-render to show panel
-            
-            // Scroll and flash
-            container.scrollIntoView({ behavior: 'smooth' });
-            container.classList.add('ring-4', 'ring-red-500', 'animate-pulse');
-            setTimeout(() => {
-              container.classList.remove('ring-4', 'ring-red-500', 'animate-pulse');
-            }, 2000);
-          }
+          // Expand if collapsed
+          showMessagesPanel = true;
+          renderDashboard(); // Re-render to show panel
+          
+          // Wait for DOM update
+          setTimeout(() => {
+            const msgPanel = document.getElementById('messages-content');
+            const container = msgPanel?.closest('.bg-slate-800');
+            if (container) {
+              // Scroll and flash
+              container.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              container.classList.add('ring-4', 'ring-red-500', 'animate-pulse');
+              setTimeout(() => {
+                container.classList.remove('ring-4', 'ring-red-500', 'animate-pulse');
+              }, 3000);
+            }
+          }, 100);
         }
       });
     })
@@ -1843,19 +1846,6 @@ function renderDashboard() {
           </div>
         </div>
         
-        <!-- Debug Info -->
-        <details class="mt-8">
-          <summary class="text-slate-500 text-sm cursor-pointer">Debug Info</summary>
-          <pre class="mt-4 bg-slate-800 p-4 rounded-xl text-slate-300 text-xs overflow-auto">
-User: ${currentUser?.email || 'Not logged in'}
-Medications: ${medications.length}
-Caregivers: ${caregivers.length}
-Hydration Logs: ${hydrationLogs.length}
-Juice Logs: ${juiceLogs.length}
-BM Logs: ${bmLogs.length}
-Supabase: ${SUPABASE_URL}
-          </pre>
-        </details>
       </div>
     </div>
   `;
