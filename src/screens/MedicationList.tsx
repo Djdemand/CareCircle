@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { 
-  View, 
-  Text, 
-  ScrollView, 
-  StyleSheet, 
-  TouchableOpacity, 
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
   Alert,
-  RefreshControl 
+  RefreshControl
 } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../utils/supabase';
@@ -25,6 +25,7 @@ interface Medication {
   frequency_hours: number;
   duration_days: number;
   start_date: string;
+  position?: number;
 }
 
 interface MedLog {
@@ -51,6 +52,7 @@ export const MedicationList = ({ navigation }: Props) => {
   const [medLogs, setMedLogs] = useState<MedLog[]>([]);
   const [caregivers, setCaregivers] = useState<Caregiver[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [draggedItem, setDraggedItem] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -59,11 +61,11 @@ export const MedicationList = ({ navigation }: Props) => {
 
   const loadData = async () => {
     try {
-      // Load medications
+      // Load medications ordered by position (for custom ordering)
       const { data: medsData } = await supabase
         .from('medications')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('position', { ascending: true, nullsFirst: false });
 
       // Load medication logs for today
       const today = new Date().toISOString().split('T')[0];
@@ -194,6 +196,64 @@ export const MedicationList = ({ navigation }: Props) => {
 
   const activeMeds = getActiveMedications();
 
+  const handleEdit = (medication: Medication) => {
+    navigation.navigate('AddMedication', {
+      caregiverId: user?.id || '',
+      editingMedication: medication
+    });
+  };
+
+  const handleDelete = (medicationId: string) => {
+    Alert.alert(
+      'Delete Medication',
+      'Are you sure you want to delete this medication?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { error } = await supabase
+                .from('medications')
+                .delete()
+                .eq('id', medicationId);
+
+              if (error) throw error;
+            } catch (error: any) {
+              Alert.alert('Error', error.message);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleReorder = async (fromIndex: number, toIndex: number) => {
+    const newMeds = [...medications];
+    const [movedItem] = newMeds.splice(fromIndex, 1);
+    newMeds.splice(toIndex, 0, movedItem);
+
+    // Update positions in database
+    const updates = newMeds.map((med, index) => ({
+      id: med.id,
+      position: index
+    }));
+
+    try {
+      for (const update of updates) {
+        await supabase
+          .from('medications')
+          .update({ position: update.position })
+          .eq('id', update.id);
+      }
+      setMedications(newMeds);
+    } catch (error: any) {
+      Alert.alert('Error', error.message);
+      loadData(); // Reload on error
+    }
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -222,7 +282,7 @@ export const MedicationList = ({ navigation }: Props) => {
             </Text>
           </View>
         ) : (
-          activeMeds.map(medication => {
+          activeMeds.map((medication, index) => {
             const status = getMedicationStatus(medication);
             const daysInfo = getDaysRemaining(medication);
             const windowLabel = getCurrentWindow(medication);
@@ -237,6 +297,32 @@ export const MedicationList = ({ navigation }: Props) => {
                 takenBy={status.takenBy}
                 onPress={() => handleMarkTaken(medication.id)}
                 daysInfo={daysInfo}
+                onEdit={() => handleEdit(medication)}
+                onDelete={() => handleDelete(medication.id)}
+                onLongPress={() => {
+                  // Simple reorder prompt for now
+                  // In a full implementation, this would trigger drag-and-drop
+                  Alert.alert(
+                    'Reorder Medication',
+                    'Move this medication to a new position (0 = top)',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Move to Top',
+                        onPress: () => handleReorder(index, 0),
+                      },
+                      {
+                        text: 'Move Up',
+                        onPress: () => handleReorder(index, Math.max(0, index - 1)),
+                      },
+                      {
+                        text: 'Move Down',
+                        onPress: () => handleReorder(index, Math.min(activeMeds.length - 1, index + 1)),
+                      },
+                    ]
+                  );
+                }}
+                isDragging={draggedItem === medication.id}
               />
             );
           })

@@ -145,7 +145,9 @@ export const HydrationTracker = () => {
     if (ml >= 1000) {
       return `${(ml / 1000).toFixed(1)}L`;
     }
-    return `${ml}ml`;
+    // Convert ml to oz for display (1 oz ≈ 29.57 ml)
+    const oz = (ml / 29.57).toFixed(0);
+    return `${oz} oz`; // Ensure space between number and "oz"
   };
 
   const WaterButton = ({ amount, label }: { amount: number; label: string }) => (

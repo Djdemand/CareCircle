@@ -1,6 +1,6 @@
 ﻿# CareCircle - Medicine Care Team App
 
-![Version](https://img.shields.io/badge/version-3.3.0-blue.svg)
+![Version](https://img.shields.io/badge/version-3.4.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
 ## 📋 Project Overview
@@ -13,10 +13,14 @@ CareCircle is a **multi-platform** application designed for clinical and home ca
   ✅ **Duplicate Dose Prevention** - Deterministic dose window locking to prevent double-dosing
   ✅ **Push Notifications** - Team-wide reminders for medication schedules
   ✅ **Hydration Tracking** - Shared water intake logs with visual progress indicators and glass effect
-  ✅ **Custom Hydration Goals** - Users can set personalized daily water intake targets (default: 128oz)
+  ✅ **Juice Tracking** - Separate monitor for juice intake with custom goals
+  ✅ **BM Tracking** - Daily bowel movement log with health status indicators (Red/Yellow/Flashing alerts)
+  ✅ **Custom Hydration/Juice Goals** - Users can set personalized daily intake targets
   ✅ **"As Needed" Medications** - Mark medications as "As Needed" (frequency = 0) with no overdue status
   ✅ **Skip Dose Functionality** - Skip scheduled doses with logging and timer reset
-  ✅ **Delete Individual Logs** - Remove specific medication or hydration log entries
+  ✅ **Take Early Functionality** - Bypass schedule locks for early administration (with confirmation)
+  ✅ **Mandatory Medications** - Flag critical medications that require strict adherence
+  ✅ **Delete Individual Logs** - Remove specific medication, hydration, or juice log entries
   ✅ **Audit Trail** - Complete history of who administered what and when
   ✅ **Dark Theme UI** - Eye-friendly interface optimized for 24/7 care environments
   ✅ **Web Deployment** - Full-featured web app deployable to Netlify
@@ -25,6 +29,9 @@ CareCircle is a **multi-platform** application designed for clinical and home ca
   ✅ **Overdue Status** - Displays overdue medications with red highlighting
   ✅ **Next Dose Time** - Shows exact date and time for next dose
   ✅ **Foreign Key Fixes** - Resolves FK constraints for all users across hydration and medication logging
+  ✅ **Drag-and-Drop Reordering** - Easily reorder medications with long-press and drag
+  ✅ **Mobile-Friendly UI** - Enhanced touch targets and layout for mobile devices
+  ✅ **Real-Time Refresh** - Instant updates across all devices when changes occur
 
 ---
 
@@ -100,7 +107,6 @@ CareCircle/
 ├── netlify.toml           # Netlify deployment configuration
 ├── package.json            # Project dependencies
 └── requirements.txt        # Original design requirements
-
 ```
 
 ---
@@ -182,6 +188,8 @@ The application uses a PostgreSQL database with the following tables:
 - **`medications`** - Medication details, dosage, and schedules
 - **`med_logs`** - Dose administration records with caregiver attribution
 - **`hydration_logs`** - Water intake tracking
+- **`juice_logs`** - Juice intake tracking
+- **`bm_logs`** - Bowel movement tracking
 
 ### Key Safety Features
 
@@ -206,7 +214,10 @@ See [`supabase/setup.sql`](supabase/setup.sql) for complete schema definition.
 | Delete Medication | ✅ Complete | [`main.js`](web/src/main.js) |
 | "As Needed" Medications | ✅ Complete | [`main.js`](web/src/main.js) |
 | Skip Dose Functionality | ✅ Complete | [`main.js`](web/src/main.js) |
+| Take Early Functionality | ✅ Complete | [`main.js`](web/src/main.js) |
 | Custom Hydration Goals | ✅ Complete | [`main.js`](web/src/main.js) |
+| Juice Tracking | ✅ Complete | [`main.js`](web/src/main.js) |
+| BM Tracking | ✅ Complete | [`main.js`](web/src/main.js) |
 | Delete Individual Logs | ✅ Complete | [`main.js`](web/src/main.js) |
 | Team Invitations | ✅ Complete | [`teamService.ts`](src/utils/teamService.ts) |
 | Dose Window Logic | ✅ Complete | [`doseCalc.ts`](src/utils/doseCalc.ts) |
@@ -224,6 +235,7 @@ See [`supabase/setup.sql`](supabase/setup.sql) for complete schema definition.
 | Overdue Status | ✅ Complete | [`main.js`](web/src/main.js) |
 | Next Dose Time Display | ✅ Complete | [`main.js`](web/src/main.js) |
 | Foreign Key Constraint Fixes | ✅ Complete | [`main.js`](web/src/main.js) |
+| Drag-and-Drop Reordering | ✅ Complete | [`MedicationList.tsx`](src/screens/MedicationList.tsx), [`main.js`](web/src/main.js) |
 | Settings Screen | ⏳ Planned | - |
 | Medication History | ⏳ Planned | - |
 
@@ -365,7 +377,10 @@ The application now includes:
 - ✅ Add, edit, and delete medications
 - ✅ **"As Needed" medications** - Mark medications as "As Needed" (frequency = 0) with no overdue status or countdown timers
 - ✅ **Skip Dose functionality** - Skip scheduled doses with logging and timer reset
+- ✅ **Take Early functionality** - Bypass schedule locks for early administration
 - ✅ **Custom Hydration Goals** - Users can set personalized daily water intake targets (default: 128oz, range: 1-256oz)
+- ✅ **Juice Tracking** - Separate monitor for juice intake
+- ✅ **BM Tracking** - Daily bowel movement log with health status indicators
 - ✅ **Delete Individual Logs** - Remove specific medication or hydration log entries without deleting entire records
 - ✅ Hydration tracking with glass filling animation
 - ✅ Team management (up to 15 caregivers)
@@ -470,6 +485,6 @@ For questions or issues, please review the documentation files:
 
 ---
 
-**Last Updated**: December 26, 2025
-**Version**: 3.3.0
+**Last Updated**: December 27, 2025
+**Version**: 3.4.0
 **Status**: ✅ Production Ready

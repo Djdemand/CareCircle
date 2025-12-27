@@ -12,11 +12,21 @@ import { Profile } from './screens/Profile';
 import { TeamManagement } from './screens/TeamManagement';
 import { HydrationTracker } from './screens/HydrationTracker';
 
+interface Medication {
+  id: string;
+  name: string;
+  dosage: string;
+  frequency_hours: number;
+  duration_days: number;
+  start_date: string;
+  position?: number;
+}
+
 export type RootStackParamList = {
   Login: undefined;
   Dashboard: undefined;
-  MedicationList: undefined;
-  AddMedication: { caregiverId?: string };
+  MedicationList: { editingMedId?: string };
+  AddMedication: { caregiverId?: string; editingMedication?: Medication } | undefined;
   Profile: undefined;
   TeamManagement: undefined;
   HydrationTracker: undefined;

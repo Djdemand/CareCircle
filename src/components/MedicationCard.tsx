@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { CheckCircle, Clock, Pill } from 'lucide-react-native';
+import { View, Text, TouchableOpacity, StyleSheet, GestureResponderEvent } from 'react-native';
+import { CheckCircle, Clock, Pill, Edit2, Trash2, GripVertical } from 'lucide-react-native';
 
 interface MedCardProps {
   name: string;
@@ -10,29 +10,51 @@ interface MedCardProps {
   takenBy?: string;
   onPress: () => void;
   daysInfo: string;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  onLongPress?: (event: GestureResponderEvent) => void;
+  isDragging?: boolean;
 }
 
 /**
  * MedicationCard - Refactored for Dark Theme (USA Standard)
+ * - Status badge moved to top left
+ * - Added edit/delete action buttons
+ * - Added drag handle for reordering
  */
-export const MedicationCard = ({ 
-  name, 
-  dosage, 
-  windowLabel, 
-  isTaken, 
-  takenBy, 
+export const MedicationCard = ({
+  name,
+  dosage,
+  windowLabel,
+  isTaken,
+  takenBy,
   onPress,
-  daysInfo
+  daysInfo,
+  onEdit,
+  onDelete,
+  onLongPress,
+  isDragging
 }: MedCardProps) => {
   return (
-    <View style={[styles.card, isTaken && styles.cardTaken]}>
+    <View
+      style={[styles.card, isTaken && styles.cardTaken, isDragging && styles.cardDragging]}
+    >
       <View style={styles.header}>
-        <View style={styles.iconContainer}>
-          <Pill color="#3b82f6" size={20} />
+        <View style={styles.headerLeft}>
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>{windowLabel}</Text>
+          </View>
+          <View style={styles.iconContainer}>
+            <Pill color="#3b82f6" size={20} />
+          </View>
         </View>
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>{windowLabel}</Text>
-        </View>
+        <TouchableOpacity
+          style={styles.dragHandle}
+          onPressIn={onLongPress}
+          activeOpacity={0.7}
+        >
+          <GripVertical color="#64748b" size={20} />
+        </TouchableOpacity>
       </View>
 
       <View style={styles.content}>
@@ -50,6 +72,30 @@ export const MedicationCard = ({
           <Text style={styles.buttonText}>Mark as Taken</Text>
         </TouchableOpacity>
       )}
+
+      {/* Action Buttons */}
+      <View style={styles.actionButtons}>
+        {onEdit && (
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={onEdit}
+            activeOpacity={0.7}
+          >
+            <Edit2 size={20} color="#3b82f6" />
+            <Text style={styles.actionButtonText}>Edit</Text>
+          </TouchableOpacity>
+        )}
+        {onDelete && (
+          <TouchableOpacity
+            style={[styles.actionButton, styles.deleteButton]}
+            onPress={onDelete}
+            activeOpacity={0.7}
+          >
+            <Trash2 size={20} color="#ef4444" />
+            <Text style={[styles.actionButtonText, styles.deleteButtonText]}>Delete</Text>
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   );
 };
@@ -73,11 +119,24 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f172a',
     borderColor: '#1e293b',
   },
+  cardDragging: {
+    opacity: 0.8,
+    shadowColor: '#3b82f6',
+    shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.5,
+    shadowRadius: 30,
+    elevation: 10,
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   iconContainer: {
     width: 40,
@@ -98,6 +157,10 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#fff',
     textTransform: 'uppercase',
+  },
+  dragHandle: {
+    padding: 8,
+    borderRadius: 8,
   },
   content: {
     marginBottom: 20,
@@ -142,5 +205,38 @@ const styles = StyleSheet.create({
     color: '#34d399',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-  }
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#334155',
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.2)',
+  },
+  actionButtonText: {
+    color: '#3b82f6',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  deleteButton: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderColor: 'rgba(239, 68, 68, 0.2)',
+  },
+  deleteButtonText: {
+    color: '#ef4444',
+  },
 });
