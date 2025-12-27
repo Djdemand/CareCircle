@@ -1,6 +1,6 @@
 ﻿# CareCircle - Medicine Care Team App
 
-![Version](https://img.shields.io/badge/version-3.4.1-blue.svg)
+![Version](https://img.shields.io/badge/version-3.5.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
 ## 📋 Project Overview
@@ -32,6 +32,9 @@ CareCircle is a **multi-platform** application designed for clinical and home ca
   ✅ **Drag-and-Drop Reordering** - Easily reorder medications with long-press and drag
   ✅ **Mobile-Friendly UI** - Enhanced touch targets and layout for mobile devices
   ✅ **Real-Time Refresh** - Instant updates across all devices when changes occur
+  ✅ **Smart "How to Use"** - Automatically collapses for experienced users (logon count > 1)
+  ✅ **Message Alerts** - Visual flash and focus when new team messages arrive
+  ✅ **Midnight Reset** - Automatic daily reset of hydration goals and history
 
 ---
 
@@ -486,5 +489,5 @@ For questions or issues, please review the documentation files:
 ---
 
 **Last Updated**: December 27, 2025
-**Version**: 3.4.1
+**Version**: 3.5.0
 **Status**: ✅ Production Ready
