@@ -1,6 +1,6 @@
 ﻿# CareCircle - Medicine Care Team App
 
-![Version](https://img.shields.io/badge/version-3.6.0-blue.svg)
+![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
 ## 📋 Project Overview
@@ -488,6 +488,6 @@ For questions or issues, please review the documentation files:
 
 ---
 
-**Last Updated**: December 27, 2025
-**Version**: 3.6.0
+**Last Updated**: December 30, 2025
+**Version**: 2.0.0
 **Status**: ✅ Production Ready
