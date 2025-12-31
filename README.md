@@ -1,6 +1,6 @@
 ﻿# CareCircle - Medicine Care Team App
 
-![Version](https://img.shields.io/badge/version-3.6.1-blue.svg)
+![Version](https://img.shields.io/badge/version-3.7.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
 ## 📋 Project Overview
@@ -485,6 +485,32 @@ For questions or issues, please review the documentation files:
 - [`deployment.md`](deployment.md) - Mobile deployment guide
 - [`NETLIFY_DEPLOYMENT_GUIDE.md`](NETLIFY_DEPLOYMENT_GUIDE.md) - Web deployment guide
 - [`changes.txt`](changes.txt) - Development history
+
+---
+
+## 📝 Changelog
+
+### Version 3.7.0 (December 31, 2025)
+
+**Bug Fixes:**
+- ✅ Fixed timezone issues causing hydration/juice logs to reset at wrong times
+- ✅ Fixed export functionality - now correctly displays dates, times, medication names, and caregiver names
+- ✅ Updated all date queries to use local midnight instead of UTC for accurate daily tracking
+- ✅ Fixed column name references in export function (medication_id, caregiver_id)
+
+**Files Modified:**
+- `web/src/main.js` - Fixed timezone handling in hydration/juice loading and reset functions
+- `src/screens/HydrationTracker.tsx` - Fixed local midnight date calculation
+- `src/screens/MedicationList.tsx` - Fixed timezone handling in medication status checks
+- `src/screens/Dashboard.tsx` - Fixed timezone handling in dose counting
+- `carecircle-template/src/screens/HydrationTracker.tsx` - Applied timezone fixes
+- `carecircle-template/src/screens/MedicationList.tsx` - Applied timezone fixes
+
+**Impact:**
+- No database schema changes required
+- No data migration needed
+- Backward compatible with existing data
+- All existing logs remain intact
 
 ---
 

@@ -66,11 +66,14 @@ export const Dashboard = ({ navigation }: Props) => {
         .select('*')
         .order('created_at', { ascending: false });
 
-      // Load medication logs
+      // Load medication logs - use local midnight to avoid timezone issues
+      const now = new Date();
+      const localMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+      
       const { data: logsData } = await supabase
         .from('med_logs')
         .select('*')
-        .gte('taken_at', new Date().toISOString().split('T')[0])
+        .gte('taken_at', localMidnight)
         .order('taken_at', { ascending: false });
 
       // Load caregivers
@@ -107,8 +110,10 @@ export const Dashboard = ({ navigation }: Props) => {
   };
 
   const getTodayDoseCount = () => {
-    const today = new Date().toISOString().split('T')[0];
-    return medLogs.filter(log => log.taken_at.startsWith(today)).length;
+    // Use local midnight to avoid timezone issues
+    const now = new Date();
+    const localMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+    return medLogs.filter(log => log.taken_at >= localMidnight).length;
   };
 
   const getActiveMedications = () => {

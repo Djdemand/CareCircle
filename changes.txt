@@ -11,3 +11,4 @@ Step 10: Version 3.4.0 Release - Added Drag-and-Drop medication reordering, Mobi
 Step 11: Version 3.4.1 Patch - Fixed medication positioning logic (new items at top), corrected "8 oz" button spacing in web app, and resolved schema cache issues.
 Step 12: Version 3.5.0 Release - Added User Logon Count logic for "How to Use" visibility, New Message focus and flash effect, and Midnight Reset for Water/Juice goals and history.
 Step 13: Version 3.6.0 Release - Refined message notification logic with improved flash timing and scroll behavior, removed debug info for cleaner interface, and updated documentation.
+Step 14: Version 3.7.0 Release - Fixed timezone issues causing hydration/juice logs to reset at wrong times, fixed export functionality to correctly display dates/times/names, updated all date queries to use local midnight instead of UTC for accurate daily tracking, and fixed column name references in export function.

@@ -576,11 +576,14 @@ async function loadCaregivers() {
 async function loadHydrationLogs() {
   console.log('CareCircle: Loading hydration logs...');
   try {
-    const today = new Date().toISOString().split('T')[0];
+    // Get local date at midnight (not UTC) to avoid timezone issues
+    const now = new Date();
+    const localMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+    
     const { data, error } = await supabase
       .from('hydration_logs')
       .select('*')
-      .gte('logged_at', today)
+      .gte('logged_at', localMidnight)
       .order('logged_at', { ascending: false });
 
     if (error) {
@@ -600,11 +603,14 @@ async function loadHydrationLogs() {
 async function loadJuiceLogs() {
   console.log('CareCircle: Loading juice logs...');
   try {
-    const today = new Date().toISOString().split('T')[0];
+    // Get local date at midnight (not UTC) to avoid timezone issues
+    const now = new Date();
+    const localMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+    
     const { data, error } = await supabase
       .from('juice_logs')
       .select('*')
-      .gte('logged_at', today)
+      .gte('logged_at', localMidnight)
       .order('logged_at', { ascending: false });
 
     if (error) {
@@ -876,11 +882,14 @@ async function handleResetHydration() {
   if (!confirm('Are you sure you want to reset today\'s hydration logs?')) return;
   
   try {
-    const today = new Date().toISOString().split('T')[0];
+    // Use local midnight to avoid timezone issues
+    const now = new Date();
+    const localMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+    
     // Delete all logs for today
     const { error } = await supabase.from('hydration_logs')
       .delete()
-      .gte('logged_at', today);
+      .gte('logged_at', localMidnight);
       
     if (error) throw error;
     
@@ -896,10 +905,13 @@ async function handleResetJuice() {
   if (!confirm('Are you sure you want to reset today\'s juice logs?')) return;
   
   try {
-    const today = new Date().toISOString().split('T')[0];
+    // Use local midnight to avoid timezone issues
+    const now = new Date();
+    const localMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+    
     const { error } = await supabase.from('juice_logs')
       .delete()
-      .gte('logged_at', today);
+      .gte('logged_at', localMidnight);
       
     if (error) throw error;
     
@@ -2712,12 +2724,26 @@ function handleExportHistory() {
 
   const headers = ['Date', 'Time', 'Medication', 'Caregiver'];
   const rows = medLogs.map(log => {
-    const med = medications.find(m => m.id === log.med_id);
+    // Fix: Use correct column names (medication_id, caregiver_id)
+    const med = medications.find(m => m.id === log.medication_id);
     const cg = caregivers.find(c => c.id === log.caregiver_id);
     const date = new Date(log.administered_at);
+    
+    // Format date and time with proper locale settings
+    const dateStr = date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    const timeStr = date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+    
     return [
-      date.toLocaleDateString(),
-      date.toLocaleTimeString(),
+      dateStr,
+      timeStr,
       med ? med.name : 'Unknown',
       cg ? cg.name : 'Unknown'
     ];
