@@ -1,1 +1,16 @@
 # Gitignore disabled by user request
+# SayDeploy Credentials
+/.saydeploy/
+/.devnexus/
+/.saydeploy/credentials.toml
+.devnexus.saydeploy.toml
+
+# Standard Node.js ignores
+node_modules/
+dist/
+.env
+.env.local
+.DS_Store
+coverage/
+.vscode/
+*.zip

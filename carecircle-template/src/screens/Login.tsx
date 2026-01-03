@@ -11,16 +11,17 @@ import {
   ActivityIndicator 
 } from 'react-native';
 import { supabase } from '../utils/supabase';
-import { Mail, Lock, LogIn } from 'lucide-react-native';
+import { Mail, Lock, LogIn, User } from 'lucide-react-native';
 
 export const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [patientName, setPatientName] = useState('');
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
 
   const handleAuth = async () => {
-    if (!email || !password) {
+    if (!email || !password || (isSignUp && !patientName)) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
@@ -39,12 +40,24 @@ export const Login = () => {
 
         // Create caregiver profile
         if (data.user) {
+          // 1. Create Patient
+          const { data: patientData, error: patientError } = await supabase
+            .from('patients')
+            .insert({ name: patientName })
+            .select()
+            .single();
+
+          if (patientError) throw patientError;
+
+          // 2. Create Caregiver linked to Patient
           const { error: profileError } = await supabase
             .from('caregivers')
             .insert({
               id: data.user.id,
               email: data.user.email!,
               name: email.split('@')[0], // Use email prefix as default name
+              patient_id: patientData.id,
+              is_admin: true,
             });
 
           if (profileError) throw profileError;
@@ -88,6 +101,19 @@ export const Login = () => {
         </View>
 
         <View style={styles.form}>
+          {isSignUp && (
+            <View style={styles.inputContainer}>
+              <User size={20} color="#94a3b8" style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Patient Name"
+                placeholderTextColor="#64748b"
+                value={patientName}
+                onChangeText={setPatientName}
+              />
+            </View>
+          )}
+
           <View style={styles.inputContainer}>
             <Mail size={20} color="#94a3b8" style={styles.inputIcon} />
             <TextInput

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
@@ -11,6 +11,7 @@ import { AddMedication } from './screens/AddMedication';
 import { Profile } from './screens/Profile';
 import { TeamManagement } from './screens/TeamManagement';
 import { HydrationTracker } from './screens/HydrationTracker';
+import { supabase } from './utils/supabase';
 
 interface Medication {
   id: string;
@@ -36,6 +37,34 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
   const { user, loading } = useAuth();
+  const [patientName, setPatientName] = useState<string>('');
+
+  useEffect(() => {
+    if (user) {
+      const fetchPatient = async () => {
+        const { data: caregiver } = await supabase
+          .from('caregivers')
+          .select('patient_id')
+          .eq('id', user.id)
+          .single();
+        
+        if (caregiver?.patient_id) {
+          const { data: patient } = await supabase
+            .from('patients')
+            .select('name')
+            .eq('id', caregiver.patient_id)
+            .single();
+          
+          if (patient) {
+            setPatientName(patient.name);
+          }
+        }
+      };
+      fetchPatient();
+    } else {
+      setPatientName('');
+    }
+  }, [user]);
 
   if (loading) {
     return (
@@ -74,7 +103,7 @@ export default function App() {
               <Stack.Screen 
                 name="Dashboard" 
                 component={Dashboard}
-                options={{ title: 'CareCircle' }}
+                options={{ title: patientName ? `CareCircle for: ${patientName}` : 'CareCircle' }}
               />
               <Stack.Screen 
                 name="MedicationList" 
