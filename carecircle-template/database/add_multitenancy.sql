@@ -1,6 +1,12 @@
 -- Migration: Add Multi-tenancy (Patients Table and Isolation)
 -- Date: 2026-01-03
 
+-- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+-- !!! WARNING: THIS SCRIPT IS FOR A NEW SUPABASE PROJECT ONLY !!!
+-- !!! DO NOT RUN THIS ON AN EXISTING PRODUCTION DATABASE !!!
+-- !!! IT MAY OVERWRITE OR CONFLICT WITH EXISTING DATA !!!
+-- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 BEGIN;
 
 -- 1. Create Patients Table
@@ -85,10 +91,12 @@ ALTER TABLE patients ENABLE ROW LEVEL SECURITY;
 -- Patients: Users can view their own patient
 DROP POLICY IF EXISTS "Access own patient" ON patients;
 CREATE POLICY "Access own patient" ON patients FOR ALL USING (id = get_my_patient_id());
+CREATE POLICY "Allow insert patient" ON patients FOR INSERT TO authenticated WITH CHECK (true);
 
 -- Caregivers: Users can view caregivers in their patient circle
 DROP POLICY IF EXISTS "Team access caregivers" ON caregivers;
 CREATE POLICY "Team access caregivers" ON caregivers FOR ALL USING (patient_id = get_my_patient_id());
+CREATE POLICY "Allow insert caregiver" ON caregivers FOR INSERT TO authenticated WITH CHECK (auth.uid() = id);
 
 -- Medications
 DROP POLICY IF EXISTS "Team access medications" ON medications;

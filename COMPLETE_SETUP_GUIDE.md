@@ -2,6 +2,11 @@
 
 This guide provides comprehensive, step-by-step instructions for setting up the CareCircle application, including the Supabase database and Netlify deployment.
 
+> **⚠️ IMPORTANT WARNING ⚠️**
+> This template is designed to run as a **separate, isolated application**.
+> **DO NOT** run these scripts on your existing production database.
+> You must create a **NEW** Supabase project for this application to ensure data isolation and prevent overwriting existing data.
+
 ## Prerequisites
 
 *   **Node.js**: Version 16 or higher.

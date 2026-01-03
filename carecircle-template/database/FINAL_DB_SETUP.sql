@@ -1,6 +1,12 @@
 -- CareCircle Database Setup Script (Consolidated & Multi-tenant)
 -- Run this script in the Supabase SQL Editor to initialize your database.
 
+-- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+-- !!! WARNING: THIS SCRIPT IS FOR A NEW SUPABASE PROJECT ONLY !!!
+-- !!! DO NOT RUN THIS ON AN EXISTING PRODUCTION DATABASE !!!
+-- !!! IT MAY OVERWRITE OR CONFLICT WITH EXISTING DATA !!!
+-- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 BEGIN;
 
 -- Enable UUID extension
