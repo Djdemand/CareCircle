@@ -90,11 +90,13 @@ ALTER TABLE patients ENABLE ROW LEVEL SECURITY;
 
 -- Patients: Users can view their own patient
 DROP POLICY IF EXISTS "Access own patient" ON patients;
+DROP POLICY IF EXISTS "Allow insert patient" ON patients;
 CREATE POLICY "Access own patient" ON patients FOR ALL USING (id = get_my_patient_id());
 CREATE POLICY "Allow insert patient" ON patients FOR INSERT TO authenticated WITH CHECK (true);
 
 -- Caregivers: Users can view caregivers in their patient circle
 DROP POLICY IF EXISTS "Team access caregivers" ON caregivers;
+DROP POLICY IF EXISTS "Allow insert caregiver" ON caregivers;
 CREATE POLICY "Team access caregivers" ON caregivers FOR ALL USING (patient_id = get_my_patient_id());
 CREATE POLICY "Allow insert caregiver" ON caregivers FOR INSERT TO authenticated WITH CHECK (auth.uid() = id);
 
