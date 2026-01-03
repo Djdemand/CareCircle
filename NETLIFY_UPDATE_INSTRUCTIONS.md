@@ -29,3 +29,25 @@ You need to apply the schema changes to support multi-tenancy.
 1.  Open your deployed site URL.
 2.  Try to **Sign Up** a new user. You should see the "Patient Name" field.
 3.  After signing up, verify the header shows "CareCircle for: [Patient Name]".
+
+## Manual Deployment (Drag & Drop)
+
+If you are not using Git integration and prefer to deploy manually:
+
+1.  **Pull Latest Changes**:
+    Open your terminal in the project root and run:
+    ```bash
+    git pull origin main
+    ```
+
+2.  **Build the Project**:
+    Navigate to the template directory and build:
+    ```bash
+    cd carecircle-template
+    npm install
+    npm run build:web
+    ```
+
+3.  **Deploy to Netlify**:
+    *   Go to your Netlify Dashboard -> Deploys.
+    *   Drag and drop the `carecircle-template/dist` folder into the upload area.
