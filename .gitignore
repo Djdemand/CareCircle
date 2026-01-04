@@ -7,7 +7,7 @@
 
 # Standard Node.js ignores
 node_modules/
-dist/
+# dist/ - Included for v4.0B beta release with production build
 .env
 .env.local
 .DS_Store

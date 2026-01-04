@@ -1,13 +1,34 @@
 ﻿# CareCircle - Medicine Care Team App
 
-![Version](https://img.shields.io/badge/version-3.7.0-blue.svg)
+![Version](https://img.shields.io/badge/version-4.0B-orange.svg)
+![Status](https://img.shields.io/badge/status-BETA-yellow.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
+
+## 🚀 Version 4.0 Beta Program
+
+This is the **Beta release** of CareCircle v4.0, featuring significant improvements and new functionality currently in testing.
+
+### 🆕 Beta Program Features (v4.0B)
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| **Care Circles** | 🧪 Beta | Multi-patient support - manage multiple patients with separate care teams |
+| **Patient Switching** | 🧪 Beta | Quick switch between different patient profiles |
+| **Enhanced RLS Policies** | 🧪 Beta | Improved Row Level Security for better data isolation |
+| **Multitenancy Support** | 🧪 Beta | Complete database restructuring for multi-patient architecture |
+| **Production Dist Build** | ✅ Ready | Pre-built dist folder for immediate Netlify deployment |
+
+### ⚠️ Beta Notice
+
+This is a beta release intended for testing purposes. Please report any issues encountered during testing. Production use is not recommended until the stable v4.0 release.
+
+---
 
 ## 📋 Project Overview
 
 CareCircle is a **multi-platform** application designed for clinical and home care teams (up to 15 users) to coordinate medication administration and hydration tracking for a patient. The app provides real-time synchronization across multiple devices, preventing double-dosing and ensuring safe medication management.
 
-### Key Features
+### Key Features (Stable)
   
   ✅ **Real-Time Team Synchronization** - Live updates across all 15 caregiver devices
   ✅ **Duplicate Dose Prevention** - Deterministic dose window locking to prevent double-dosing
@@ -490,6 +511,35 @@ For questions or issues, please review the documentation files:
 
 ## 📝 Changelog
 
+### Version 4.0B (January 4, 2026) - BETA
+
+**🆕 New Beta Features:**
+- 🧪 **Care Circles** - Multi-patient support allowing caregivers to manage multiple patients
+- 🧪 **Patient Switching** - Quick switch between different patient profiles from the dashboard
+- 🧪 **Enhanced RLS Policies** - Improved Row Level Security for better data isolation between care circles
+- 🧪 **Multitenancy Support** - Complete database restructuring for multi-patient architecture
+- ✅ **Production Dist Build** - Pre-built dist folder included for immediate Netlify deployment
+
+**Files Added:**
+- `dist/` - Production-ready build for Netlify deployment
+  - `dist/index.html` - Main entry point
+  - `dist/config.js` - Supabase configuration
+  - `dist/main.js` - Complete application logic
+- `supabase/migrations/20251229000001_add_care_circles.sql` - Care circles schema
+- `supabase/migrations/20251230000001_fix_rls_policies.sql` - RLS policy fixes
+- `src/utils/careCircleService.ts` - Care circle management utilities
+
+**Database Changes:**
+- Added `care_circles` table for multi-patient support
+- Added `care_circle_members` table for team management per patient
+- Updated RLS policies for all tables to support care circle isolation
+- Added caregiver-patient relationship mapping
+
+**⚠️ Beta Note:**
+This is a beta release. Report issues to the development team. Production deployment not recommended until stable v4.0 release.
+
+---
+
 ### Version 3.7.0 (December 31, 2025)
 
 **Bug Fixes:**
@@ -514,6 +564,6 @@ For questions or issues, please review the documentation files:
 
 ---
 
-**Last Updated**: December 30, 2025
-**Version**: 3.6.1
-**Status**: ✅ Production Ready
+**Last Updated**: January 4, 2026
+**Version**: 4.0B (Beta)
+**Status**: 🧪 Beta Testing
