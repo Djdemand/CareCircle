@@ -1,6 +1,6 @@
-﻿# CareCircle Template
+# CareCircle Template
 
-![Version](https://img.shields.io/badge/version-4.0B-orange.svg)
+![Version](https://img.shields.io/badge/version-v2.1--Beta-orange.svg)
 ![Status](https://img.shields.io/badge/status-BETA-yellow.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
@@ -8,115 +8,101 @@
 
 This package contains everything you need to set up your own instance of CareCircle, a multi-platform application for coordinating care teams.
 
-## 🚀 Version 4.0 Beta Program
+## 🚀 Version 2.1 Beta (CareCircle-Beta-v2.1)
 
-This is the **Beta release** of CareCircle v4.0, featuring significant improvements and new functionality currently in testing.
+This is the latest **Beta release** of CareCircle, featuring the full transition to Multi-Tenant architecture and robust Admin management.
 
-### 🆕 Beta Program Features (v4.0B)
+### 🌟 Key New Features (v2.1)
 
 | Feature | Status | Description |
 |---------|--------|-------------|
-| **Care Circles** | 🧪 Beta | Multi-patient support - manage multiple patients with separate care teams |
-| **Patient Switching** | 🧪 Beta | Quick switch between different patient profiles |
-| **Enhanced RLS Policies** | 🧪 Beta | Improved Row Level Security for better data isolation |
-| **Multitenancy Support** | 🧪 Beta | Complete database restructuring for multi-patient architecture |
-| **Production Dist Build** | ✅ Ready | Pre-built dist folder for immediate Netlify deployment |
-
-### ⚠️ Beta Notice
-
-This is a beta release intended for testing purposes. Please report any issues encountered during testing. Production use is not recommended until the stable v4.0 release.
+| **Multi-Tenant Architecture** | ✅ Finalized | Full separation of care circles using a junction table system. |
+| **Patient Switching** | ✅ Enhanced | Seamlessly switch between patients with automatic Admin/Caregiver role detection. |
+| **Admin Rights Transfer** | ✅ Fixed | Transfer full administrator privileges to other team members securely. |
+| **Private Care Circles** | ✅ Added | Choose to make patient profiles visible in signup or keep them private/hidden. |
+| **Emoji Encoding Fix** | ✅ Fixed | Restored all UI icons and emojis with proper UTF-8 support. |
+| **Session Persistence** | ✅ Added | Remembers your last active patient across logins. |
 
 ---
 
-## ✨ Features (Stable)
+## 🛠️ Features (Core)
 
 ### Medication Management
-*   **Medication Tracking:** Schedule, log, and monitor medications with countdown timers
-*   **"As Needed" Medications:** Support for PRN medications without overdue alerts
-*   **Skip/Take Early:** Flexibility to skip doses or administer early with logging
-*   **Mandatory Medications:** Flag critical medications requiring strict adherence
-*   **Drag-and-Drop Reordering:** Easily organize medication order
+*   **Medication Tracking:** Schedule, log, and monitor medications with countdown timers.
+*   **"As Needed" Medications:** Support for PRN medications without overdue alerts.
+*   **Skip/Take Early:** Flexibility to skip doses or administer early with logging.
+*   **Mandatory Medications:** Flag critical medications requiring strict adherence.
+*   **Drag-and-Drop Reordering:** Easily organize medication order.
 
 ### Health Tracking
-*   **Hydration Tracking:** Track water intake with visual glass-filling progress and custom daily goals
-*   **Juice Tracking:** Separate juice intake monitor with customizable goals
-*   **BM Tracking:** Daily bowel movement logging with health status indicators (Red/Yellow/Flashing alerts)
-*   **Midnight Reset:** Automatic daily reset of tracking goals
+*   **Hydration Tracking:** Track water intake with visual glass-filling progress and custom daily goals.
+*   **Juice Tracking:** Separate juice intake monitor with customizable goals.
+*   **BM Tracking:** Daily bowel movement logging with health status indicators (Red/Yellow/Flashing alerts).
+*   **Midnight Reset:** Automatic daily reset of tracking goals.
 
-### Team Collaboration
-*   **Real-Time Synchronization:** Live updates across all 15 caregiver devices
-*   **Duplicate Dose Prevention:** Smart locking to prevent double-dosing
-*   **Team Messaging:** Secure in-app communication with visual alerts
-*   **Audit Trail:** Complete history of who administered what and when
-*   **Delete Individual Logs:** Remove specific log entries without affecting history
+### Team Collaboration & Multi-Tenancy
+*   **Care Circles:** Manage multiple patients with completely separate care teams.
+*   **Real-Time Synchronization:** Live updates across all caregiver devices using Supabase Realtime.
+*   **Admin Panel:** Collapsible dashboard for managing patient privacy, transfers, and factory resets.
+*   **Admin Requests:** Caregivers can request admin rights directly within the app.
+*   **Team Messaging:** Secure in-app communication with visual alerts.
 
 ### User Experience
-*   **Dark Theme UI:** Eye-friendly interface optimized for 24/7 care environments
-*   **Mobile-Friendly:** Enhanced touch targets and responsive layout
-*   **Smart "How to Use":** Auto-collapses for experienced users
-*   **Push Notifications:** Team-wide reminders for medication schedules
+*   **Session Timeout:** Admin-adjustable auto-logout (10-60 mins) with a 60-second warning.
+*   **Dark Theme UI:** Eye-friendly interface optimized for 24/7 care environments.
+*   **Mobile-Friendly:** Enhanced touch targets and responsive layout.
+*   **Confetti Celebrations:** Visual rewards for completing signup and key tasks.
 
 ---
 
-## 📂 Package Contents
+## 📦 Package Contents
 
-*   `src/` & `web/`: Complete source code
-*   `dist/`: Production-ready build for immediate deployment
-*   `database/`: SQL scripts to set up your database instantly
-*   `scripts/`: Automated setup tools for Windows, Mac, and Linux
-*   `docs/`: Comprehensive guides for every step
+*   `src/`: Complete source code.
+*   `dist/`: Production-ready build for immediate deployment (Netlify optimized).
+*   `database/`: SQL scripts for junction tables, multi-tenancy, and RLS.
+*   `docs/`: Comprehensive guides for setup and management.
 
 ## ⚡ Quick Start
 
-1.  **Prerequisites:** Ensure you have Node.js v18+ installed.
-2.  **Setup:**
-    *   **Windows:** Run `scripts/setup.bat`
-    *   **Mac/Linux:** Run `scripts/setup.sh`
-3.  **Follow the Wizard:** The script will guide you through configuration.
+1.  **Prerequisites:** Ensure you have a Supabase account and Node.js v18+.
+2.  **Configuration:** Update `dist/src/config.js` with your Supabase credentials.
+3.  **Deployment:** 
+    *   Drag and drop the `dist/` folder to [Netlify Drop](https://app.netlify.com/drop).
+    *   Initialize your database using the scripts in the `database/` folder.
 
-### Quick Deploy (Web)
+## 📄 Documentation
 
-```bash
-# The dist folder is ready for immediate deployment
-# Option 1: Drag and drop dist/ to https://app.netlify.com/drop
-# Option 2: Use Netlify CLI
-netlify deploy --prod --dir=dist
-```
+*   [**Setup Guide**](docs/SETUP_GUIDE.md): Step-by-step installation instructions.
+*   [**Database Setup**](docs/DATABASE_SETUP.md): Understanding the junction table schema.
+*   [**Patient Switching Guide**](docs/PATIENT_SWITCHING_GUIDE.md): Multi-patient configuration.
+*   [**RLS Fix Guide**](docs/RLS_FIX_MANUAL_GUIDE.md): Row Level Security setup for multi-tenancy.
 
-## 📚 Documentation
+## 💻 Tech Stack
 
-*   [**Setup Guide**](docs/SETUP_GUIDE.md): Step-by-step installation instructions
-*   [**Deployment Guide**](docs/DEPLOYMENT_GUIDE.md): How to publish to Netlify and App Stores
-*   [**Database Setup**](docs/DATABASE_SETUP.md): Understanding the data structure
-*   [**Patient Switching Guide**](docs/PATIENT_SWITCHING_GUIDE.md): Multi-patient configuration (Beta)
-*   [**RLS Fix Guide**](docs/RLS_FIX_MANUAL_GUIDE.md): Row Level Security setup
-*   [**Testing Guide**](docs/TESTING_GUIDE.md): Verify your installation
-*   [**Troubleshooting**](docs/TROUBLESHOOTING.md): Solutions to common issues
-
-## 🛠️ Tech Stack
-
-*   **Frontend:** React Native (Expo v50.0.0), Vanilla JS (Web)
-*   **Backend:** Supabase (PostgreSQL, Auth, Realtime)
-*   **Build:** Vite (Web), EAS (Mobile)
-*   **Styling:** Tailwind CSS
+*   **Frontend:** Vanilla Javascript (Web), CSS3, Tailwind CSS.
+*   **Backend:** Supabase (PostgreSQL, Auth, Realtime, RPC).
+*   **Deployment:** Netlify.
 
 ---
 
 ## 📝 Changelog
 
-### Version 4.0B (January 4, 2026) - BETA
+### Version 2.1 (January 6, 2026) - CURRENT
+- **Fix:** Corrected Admin Transfer logic to update `caregiver_patients` table.
+- **Fix:** `handleSwitchPatient` now correctly updates local `isAdmin` state from the junction table.
+- **Fix:** Fixed emoji rendering issues (UT8-BOM support).
+- **New:** Added privacy toggle (Visible/Hidden) during patient creation.
+- **New:** Persisted `lastPatientId` in localStorage.
 
-**🆕 New Beta Features:**
-- 🧪 Care Circles - Multi-patient support
-- 🧪 Patient Switching - Quick profile switching
-- 🧪 Enhanced RLS Policies - Improved data isolation
-- 🧪 Multitenancy Support - Multi-patient architecture
-- ✅ Production Dist Build - Ready for immediate deployment
+### Version 2.0 (January 5, 2026)
+- **New:** Implemented collapsible Admin Panel.
+- **New:** Added Session Timeout with countdown warnings.
+- **New:** Multi-tenant junction table integration (`caregiver_patients`).
 
 ---
 
-**Last Updated**: January 5, 2026
-**Version**: 4.0B (Beta)
-**Status**: 🧪 Beta Testing
+**Last Updated**: January 6, 2026
+**Version**: CareCircle-Beta-v2.1
+**Status**: ✅ Beta Stable
 
-*Generated for CareCircle Distribution*
+*Generated for CareCircle Development*
