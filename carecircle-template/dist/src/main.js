@@ -3192,306 +3192,307 @@ function renderDashboard() {
         btn.innerHTML = originalText;
         btn.disabled = false;
       }
-    }
+    });
+  }
 
   // Toggle Admin Panel (Collapsible)
   const toggleAdminPanelBtn = document.getElementById('toggle-admin-panel');
-    if (toggleAdminPanelBtn) {
-      toggleAdminPanelBtn.addEventListener('click', () => {
-        adminPanelCollapsed = !adminPanelCollapsed;
-        localStorage.setItem('adminPanelCollapsed', adminPanelCollapsed);
+  if (toggleAdminPanelBtn) {
+    toggleAdminPanelBtn.addEventListener('click', () => {
+      adminPanelCollapsed = !adminPanelCollapsed;
+      localStorage.setItem('adminPanelCollapsed', adminPanelCollapsed);
 
-        const content = document.getElementById('admin-panel-content');
-        const chevron = document.getElementById('admin-panel-chevron');
+      const content = document.getElementById('admin-panel-content');
+      const chevron = document.getElementById('admin-panel-chevron');
 
-        if (content) {
-          content.classList.toggle('hidden', adminPanelCollapsed);
-        }
-        if (chevron) {
-          chevron.classList.toggle('rotate-180', !adminPanelCollapsed);
-        }
-      });
-    }
-
-    // Switch Patient Dropdown (Admin Panel)
-    const switchPatientDropdown = document.getElementById('switch-patient-dropdown');
-    if (switchPatientDropdown) {
-      switchPatientDropdown.addEventListener('change', async (e) => {
-        if (e.target.value && e.target.value !== currentPatientId) {
-          await handleSwitchPatient(e.target.value);
-        }
-      });
-    }
-
-    // Session Timeout Slider
-    const sessionTimeoutSlider = document.getElementById('session-timeout-slider');
-    if (sessionTimeoutSlider) {
-      sessionTimeoutSlider.addEventListener('input', (e) => {
-        const value = parseInt(e.target.value);
-        const display = document.getElementById('session-timeout-value');
-        if (display) {
-          display.textContent = `${value} min`;
-        }
-      });
-
-      sessionTimeoutSlider.addEventListener('change', (e) => {
-        const value = parseInt(e.target.value);
-        inactivityTimeoutMinutes = value;
-        localStorage.setItem('sessionTimeoutMinutes', value);
-        resetInactivityTimer();
-        alert(`Session timeout updated to ${value} minutes.`);
-      });
-    }
-
-    // Switch Patient dropdown (Admin only) - OLD, keeping for backwards compat
-    const switchPatientSelect = document.getElementById('switch-patient-select');
-    if (switchPatientSelect) {
-      switchPatientSelect.addEventListener('change', (e) => {
-        if (e.target.value) {
-          handleSwitchPatient(e.target.value);
-        }
-      });
-    }
-
-    // Request Admin Rights button (non-admins)
-    const requestAdminBtn = document.getElementById('request-admin-btn');
-    if (requestAdminBtn) {
-      requestAdminBtn.addEventListener('click', handleRequestAdminRights);
-    }
-
-    // Approve Admin Request buttons
-    document.querySelectorAll('.approve-admin-btn').forEach(btn => {
-      btn.addEventListener('click', () => handleApproveAdminRequest(btn.dataset.id, btn.dataset.userId));
-    });
-
-    // Deny Admin Request buttons
-    document.querySelectorAll('.deny-admin-btn').forEach(btn => {
-      btn.addEventListener('click', () => handleDenyAdminRequest(btn.dataset.id));
-    });
-  }
-
-  // Drag and Drop functionality for medication reordering
-  let draggedMedId = null;
-
-  function setupDragAndDrop() {
-    const medCards = document.querySelectorAll('[data-med-id]');
-
-    medCards.forEach(card => {
-      card.addEventListener('dragstart', (e) => {
-        draggedMedId = card.dataset.medId;
-        card.classList.add('opacity-50');
-        e.dataTransfer.effectAllowed = 'move';
-      });
-
-      card.addEventListener('dragend', () => {
-        card.classList.remove('opacity-50');
-        draggedMedId = null;
-      });
-
-      card.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-        card.classList.add('border-blue-500');
-      });
-
-      card.addEventListener('dragleave', () => {
-        card.classList.remove('border-blue-500');
-      });
-
-      card.addEventListener('drop', async (e) => {
-        e.preventDefault();
-        card.classList.remove('border-blue-500');
-
-        const targetMedId = card.dataset.medId;
-        if (draggedMedId && targetMedId && draggedMedId !== targetMedId) {
-          await reorderMedications(draggedMedId, targetMedId);
-        }
-      });
-    });
-  }
-
-  async function reorderMedications(draggedId, targetId) {
-    const draggedIndex = medications.findIndex(m => m.id === draggedId);
-    const targetIndex = medications.findIndex(m => m.id === targetId);
-
-    if (draggedIndex === -1 || targetIndex === -1) return;
-
-    // Remove dragged medication from array
-    const [draggedMed] = medications.splice(draggedIndex, 1);
-
-    // Insert at new position
-    medications.splice(targetIndex, 0, draggedMed);
-
-    // Update positions
-    const updates = medications.map((med, index) => ({
-      id: med.id,
-      position: index + 1
-    }));
-
-    try {
-      // Update all positions in database
-      for (const update of updates) {
-        await supabase.from('medications').update({ position: update.position }).eq('id', update.id);
+      if (content) {
+        content.classList.toggle('hidden', adminPanelCollapsed);
       }
-
-      // Reload and re-render
-      await loadMedications();
-      renderDashboard();
-    } catch (err) {
-      console.error('Error reordering medications:', err);
-      alert('Error reordering medications: ' + err.message);
-      // Reload to restore original order
-      await loadMedications();
-      renderDashboard();
-    }
+      if (chevron) {
+        chevron.classList.toggle('rotate-180', !adminPanelCollapsed);
+      }
+    });
   }
 
-  // Handle Transfer Admin
-  async function handleTransferAdmin(newAdminId) {
-    if (!confirm('Are you sure you want to transfer admin rights? You will lose your administrator privileges.')) return;
-
-    try {
-      // 1. Make new user admin
-      const { error: promoteError } = await supabase.from('caregivers').update({ is_admin: true }).eq('id', newAdminId);
-      if (promoteError) throw promoteError;
-
-      // 2. Remove admin from current user
-      const { error: demoteError } = await supabase.from('caregivers').update({ is_admin: false }).eq('id', currentUser.id);
-      if (demoteError) throw demoteError;
-
-      // 3. Update local state
-      isAdmin = false;
-      await loadCaregivers();
-      renderDashboard();
-      alert('Admin rights transferred successfully.');
-    } catch (err) {
-      alert('Error transferring admin rights: ' + err.message);
-    }
+  // Switch Patient Dropdown (Admin Panel)
+  const switchPatientDropdown = document.getElementById('switch-patient-dropdown');
+  if (switchPatientDropdown) {
+    switchPatientDropdown.addEventListener('change', async (e) => {
+      if (e.target.value && e.target.value !== currentPatientId) {
+        await handleSwitchPatient(e.target.value);
+      }
+    });
   }
 
-  // Handle Request Admin Rights (for non-admins)
-  async function handleRequestAdminRights() {
-    const reason = prompt('Why do you need admin rights? (optional)\n\nExamples:\n- Need to add a new medication\n- Need to update dosage\n- Need to manage team settings');
+  // Session Timeout Slider
+  const sessionTimeoutSlider = document.getElementById('session-timeout-slider');
+  if (sessionTimeoutSlider) {
+    sessionTimeoutSlider.addEventListener('input', (e) => {
+      const value = parseInt(e.target.value);
+      const display = document.getElementById('session-timeout-value');
+      if (display) {
+        display.textContent = `${value} min`;
+      }
+    });
 
-    if (reason === null) return; // User cancelled
-
-    try {
-      // Get current user's name
-      const { data: profile } = await supabase.from('caregivers').select('name').eq('id', currentUser.id).single();
-
-      // Create an admin request message
-      const { error } = await supabase.from('messages').insert({
-        patient_id: currentPatientId,
-        sender_id: currentUser.id,
-        sender_name: profile?.name || currentUser.email?.split('@')[0],
-        content: reason || 'No reason provided',
-        message_type: 'admin_request',
-        resolved: false
-      });
-
-      if (error) throw error;
-
-      alert('Admin rights request sent! The admin will be notified and can approve or deny your request.');
-      await loadMessages();
-      renderDashboard();
-    } catch (err) {
-      alert('Error sending request: ' + err.message);
-    }
+    sessionTimeoutSlider.addEventListener('change', (e) => {
+      const value = parseInt(e.target.value);
+      inactivityTimeoutMinutes = value;
+      localStorage.setItem('sessionTimeoutMinutes', value);
+      resetInactivityTimer();
+      alert(`Session timeout updated to ${value} minutes.`);
+    });
   }
 
-  // Handle Approve Admin Request
-  async function handleApproveAdminRequest(requestId, userId) {
-    if (!confirm('Approve this admin request? This will transfer your admin rights to this user.')) return;
-
-    try {
-      // 1. Make the requester admin
-      const { error: promoteError } = await supabase.from('caregivers').update({ is_admin: true }).eq('id', userId);
-      if (promoteError) throw promoteError;
-
-      // 2. Remove admin from current user
-      const { error: demoteError } = await supabase.from('caregivers').update({ is_admin: false }).eq('id', currentUser.id);
-      if (demoteError) throw demoteError;
-
-      // 3. Mark request as resolved
-      await supabase.from('messages').update({ resolved: true }).eq('id', requestId);
-
-      // 4. Update local state
-      isAdmin = false;
-      await Promise.all([loadCaregivers(), loadMessages()]);
-      renderDashboard();
-      alert('Admin rights transferred successfully!');
-    } catch (err) {
-      alert('Error approving request: ' + err.message);
-    }
+  // Switch Patient dropdown (Admin only) - OLD, keeping for backwards compat
+  const switchPatientSelect = document.getElementById('switch-patient-select');
+  if (switchPatientSelect) {
+    switchPatientSelect.addEventListener('change', (e) => {
+      if (e.target.value) {
+        handleSwitchPatient(e.target.value);
+      }
+    });
   }
 
-  // Handle Deny Admin Request
-  async function handleDenyAdminRequest(requestId) {
-    if (!confirm('Deny this admin request?')) return;
-
-    try {
-      // Mark request as resolved (denied)
-      await supabase.from('messages').update({ resolved: true }).eq('id', requestId);
-
-      await loadMessages();
-      renderDashboard();
-      alert('Request denied.');
-    } catch (err) {
-      alert('Error denying request: ' + err.message);
-    }
+  // Request Admin Rights button (non-admins)
+  const requestAdminBtn = document.getElementById('request-admin-btn');
+  if (requestAdminBtn) {
+    requestAdminBtn.addEventListener('click', handleRequestAdminRights);
   }
 
-  // Handle Edit Patient Name
-  async function handleEditPatientName() {
-    const newName = prompt('Enter the patient name (who is being cared for):', currentPatientName);
-    if (!newName || newName.trim() === '' || newName === currentPatientName) return;
+  // Approve Admin Request buttons
+  document.querySelectorAll('.approve-admin-btn').forEach(btn => {
+    btn.addEventListener('click', () => handleApproveAdminRequest(btn.dataset.id, btn.dataset.userId));
+  });
 
-    try {
-      const { error } = await supabase.from('patients').update({ name: newName.trim() }).eq('id', currentPatientId);
-      if (error) throw error;
+  // Deny Admin Request buttons
+  document.querySelectorAll('.deny-admin-btn').forEach(btn => {
+    btn.addEventListener('click', () => handleDenyAdminRequest(btn.dataset.id));
+  });
+}
 
-      currentPatientName = newName.trim();
-      renderDashboard();
-      alert('Patient name updated successfully!');
-    } catch (err) {
-      alert('Error updating patient name: ' + err.message);
+// Drag and Drop functionality for medication reordering
+let draggedMedId = null;
+
+function setupDragAndDrop() {
+  const medCards = document.querySelectorAll('[data-med-id]');
+
+  medCards.forEach(card => {
+    card.addEventListener('dragstart', (e) => {
+      draggedMedId = card.dataset.medId;
+      card.classList.add('opacity-50');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+
+    card.addEventListener('dragend', () => {
+      card.classList.remove('opacity-50');
+      draggedMedId = null;
+    });
+
+    card.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      card.classList.add('border-blue-500');
+    });
+
+    card.addEventListener('dragleave', () => {
+      card.classList.remove('border-blue-500');
+    });
+
+    card.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      card.classList.remove('border-blue-500');
+
+      const targetMedId = card.dataset.medId;
+      if (draggedMedId && targetMedId && draggedMedId !== targetMedId) {
+        await reorderMedications(draggedMedId, targetMedId);
+      }
+    });
+  });
+}
+
+async function reorderMedications(draggedId, targetId) {
+  const draggedIndex = medications.findIndex(m => m.id === draggedId);
+  const targetIndex = medications.findIndex(m => m.id === targetId);
+
+  if (draggedIndex === -1 || targetIndex === -1) return;
+
+  // Remove dragged medication from array
+  const [draggedMed] = medications.splice(draggedIndex, 1);
+
+  // Insert at new position
+  medications.splice(targetIndex, 0, draggedMed);
+
+  // Update positions
+  const updates = medications.map((med, index) => ({
+    id: med.id,
+    position: index + 1
+  }));
+
+  try {
+    // Update all positions in database
+    for (const update of updates) {
+      await supabase.from('medications').update({ position: update.position }).eq('id', update.id);
     }
+
+    // Reload and re-render
+    await loadMedications();
+    renderDashboard();
+  } catch (err) {
+    console.error('Error reordering medications:', err);
+    alert('Error reordering medications: ' + err.message);
+    // Reload to restore original order
+    await loadMedications();
+    renderDashboard();
   }
+}
 
-  // Handle Create New Patient
-  async function handleCreatePatient() {
-    const patientName = prompt('Enter the name of the new patient (who will be cared for):');
-    if (!patientName || patientName.trim() === '') return;
+// Handle Transfer Admin
+async function handleTransferAdmin(newAdminId) {
+  if (!confirm('Are you sure you want to transfer admin rights? You will lose your administrator privileges.')) return;
 
-    try {
-      // Create new patient
-      const { data: newPatient, error: patientError } = await supabase
-        .from('patients')
-        .insert({ name: patientName.trim() })
-        .select()
-        .single();
+  try {
+    // 1. Make new user admin
+    const { error: promoteError } = await supabase.from('caregivers').update({ is_admin: true }).eq('id', newAdminId);
+    if (promoteError) throw promoteError;
 
-      if (patientError) throw patientError;
+    // 2. Remove admin from current user
+    const { error: demoteError } = await supabase.from('caregivers').update({ is_admin: false }).eq('id', currentUser.id);
+    if (demoteError) throw demoteError;
 
-      // Add to junction table (current user becomes admin of new patient)
-      await supabase.from('caregiver_patients').insert({
-        caregiver_id: currentUser.id,
-        patient_id: newPatient.id,
-        is_admin: true
-      });
-
-      // Show custom modal asking to switch
-      showPatientCreatedModal(patientName, newPatient.id);
-    } catch (err) {
-      alert('Error creating patient: ' + err.message);
-    }
+    // 3. Update local state
+    isAdmin = false;
+    await loadCaregivers();
+    renderDashboard();
+    alert('Admin rights transferred successfully.');
+  } catch (err) {
+    alert('Error transferring admin rights: ' + err.message);
   }
+}
 
-  // Show modal after patient creation with YES/NO options
-  function showPatientCreatedModal(patientName, patientId) {
-    const modal = document.createElement('div');
-    modal.className = 'fixed inset-0 bg-black/70 flex items-center justify-center z-50 animate-fade-in';
-    modal.innerHTML = `
+// Handle Request Admin Rights (for non-admins)
+async function handleRequestAdminRights() {
+  const reason = prompt('Why do you need admin rights? (optional)\n\nExamples:\n- Need to add a new medication\n- Need to update dosage\n- Need to manage team settings');
+
+  if (reason === null) return; // User cancelled
+
+  try {
+    // Get current user's name
+    const { data: profile } = await supabase.from('caregivers').select('name').eq('id', currentUser.id).single();
+
+    // Create an admin request message
+    const { error } = await supabase.from('messages').insert({
+      patient_id: currentPatientId,
+      sender_id: currentUser.id,
+      sender_name: profile?.name || currentUser.email?.split('@')[0],
+      content: reason || 'No reason provided',
+      message_type: 'admin_request',
+      resolved: false
+    });
+
+    if (error) throw error;
+
+    alert('Admin rights request sent! The admin will be notified and can approve or deny your request.');
+    await loadMessages();
+    renderDashboard();
+  } catch (err) {
+    alert('Error sending request: ' + err.message);
+  }
+}
+
+// Handle Approve Admin Request
+async function handleApproveAdminRequest(requestId, userId) {
+  if (!confirm('Approve this admin request? This will transfer your admin rights to this user.')) return;
+
+  try {
+    // 1. Make the requester admin
+    const { error: promoteError } = await supabase.from('caregivers').update({ is_admin: true }).eq('id', userId);
+    if (promoteError) throw promoteError;
+
+    // 2. Remove admin from current user
+    const { error: demoteError } = await supabase.from('caregivers').update({ is_admin: false }).eq('id', currentUser.id);
+    if (demoteError) throw demoteError;
+
+    // 3. Mark request as resolved
+    await supabase.from('messages').update({ resolved: true }).eq('id', requestId);
+
+    // 4. Update local state
+    isAdmin = false;
+    await Promise.all([loadCaregivers(), loadMessages()]);
+    renderDashboard();
+    alert('Admin rights transferred successfully!');
+  } catch (err) {
+    alert('Error approving request: ' + err.message);
+  }
+}
+
+// Handle Deny Admin Request
+async function handleDenyAdminRequest(requestId) {
+  if (!confirm('Deny this admin request?')) return;
+
+  try {
+    // Mark request as resolved (denied)
+    await supabase.from('messages').update({ resolved: true }).eq('id', requestId);
+
+    await loadMessages();
+    renderDashboard();
+    alert('Request denied.');
+  } catch (err) {
+    alert('Error denying request: ' + err.message);
+  }
+}
+
+// Handle Edit Patient Name
+async function handleEditPatientName() {
+  const newName = prompt('Enter the patient name (who is being cared for):', currentPatientName);
+  if (!newName || newName.trim() === '' || newName === currentPatientName) return;
+
+  try {
+    const { error } = await supabase.from('patients').update({ name: newName.trim() }).eq('id', currentPatientId);
+    if (error) throw error;
+
+    currentPatientName = newName.trim();
+    renderDashboard();
+    alert('Patient name updated successfully!');
+  } catch (err) {
+    alert('Error updating patient name: ' + err.message);
+  }
+}
+
+// Handle Create New Patient
+async function handleCreatePatient() {
+  const patientName = prompt('Enter the name of the new patient (who will be cared for):');
+  if (!patientName || patientName.trim() === '') return;
+
+  try {
+    // Create new patient
+    const { data: newPatient, error: patientError } = await supabase
+      .from('patients')
+      .insert({ name: patientName.trim() })
+      .select()
+      .single();
+
+    if (patientError) throw patientError;
+
+    // Add to junction table (current user becomes admin of new patient)
+    await supabase.from('caregiver_patients').insert({
+      caregiver_id: currentUser.id,
+      patient_id: newPatient.id,
+      is_admin: true
+    });
+
+    // Show custom modal asking to switch
+    showPatientCreatedModal(patientName, newPatient.id);
+  } catch (err) {
+    alert('Error creating patient: ' + err.message);
+  }
+}
+
+// Show modal after patient creation with YES/NO options
+function showPatientCreatedModal(patientName, patientId) {
+  const modal = document.createElement('div');
+  modal.className = 'fixed inset-0 bg-black/70 flex items-center justify-center z-50 animate-fade-in';
+  modal.innerHTML = `
     <div class="bg-slate-800 rounded-2xl p-8 mx-4 max-w-md w-full border border-slate-700 shadow-2xl animate-scale-in">
       <div class="text-center mb-6">
         <div class="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -3516,84 +3517,84 @@ function renderDashboard() {
     </div>
   `;
 
-    document.body.appendChild(modal);
+  document.body.appendChild(modal);
 
-    document.getElementById('switch-yes-btn').addEventListener('click', async () => {
-      modal.remove();
-      await handleSwitchPatient(patientId);
-    });
+  document.getElementById('switch-yes-btn').addEventListener('click', async () => {
+    modal.remove();
+    await handleSwitchPatient(patientId);
+  });
 
-    document.getElementById('switch-no-btn').addEventListener('click', async () => {
-      modal.remove();
-      await loadAvailablePatients();
-      renderDashboard();
-      alert(`Staying on current patient. You can switch to "${patientName}" anytime using the Switch Patient button.`);
-    });
-  }
+  document.getElementById('switch-no-btn').addEventListener('click', async () => {
+    modal.remove();
+    await loadAvailablePatients();
+    renderDashboard();
+    alert(`Staying on current patient. You can switch to "${patientName}" anytime using the Switch Patient button.`);
+  });
+}
 
-  // Handle Switch Patient
-  async function handleSwitchPatient(newPatientId) {
-    if (!newPatientId || newPatientId === currentPatientId) return;
+// Handle Switch Patient
+async function handleSwitchPatient(newPatientId) {
+  if (!newPatientId || newPatientId === currentPatientId) return;
 
-    try {
-      // Update current user's patient_id
-      const { error } = await supabase
-        .from('caregivers')
-        .update({ patient_id: newPatientId })
-        .eq('id', currentUser.id);
+  try {
+    // Update current user's patient_id
+    const { error } = await supabase
+      .from('caregivers')
+      .update({ patient_id: newPatientId })
+      .eq('id', currentUser.id);
 
-      if (error) throw error;
+    if (error) throw error;
 
-      // Update local state
-      currentPatientId = newPatientId;
+    // Update local state
+    currentPatientId = newPatientId;
 
-      // Get new patient name
-      const { data: patientData } = await supabase
-        .from('patients')
-        .select('name')
-        .eq('id', newPatientId)
-        .single();
+    // Get new patient name
+    const { data: patientData } = await supabase
+      .from('patients')
+      .select('name')
+      .eq('id', newPatientId)
+      .single();
 
-      if (patientData) {
-        currentPatientName = patientData.name;
-      }
-
-      // Reload all data for the new patient
-      await Promise.all([
-        loadMedications(),
-        loadMedLogs(),
-        loadCaregivers(),
-        loadHydrationLogs(),
-        loadJuiceLogs(),
-        loadBMLogs(),
-        loadMessages(),
-        loadTeamSettings()
-      ]);
-
-      renderDashboard();
-      alert(`Switched to caring for: ${currentPatientName}`);
-    } catch (err) {
-      alert('Error switching patient: ' + err.message);
+    if (patientData) {
+      currentPatientName = patientData.name;
     }
+
+    // Reload all data for the new patient
+    await Promise.all([
+      loadMedications(),
+      loadMedLogs(),
+      loadCaregivers(),
+      loadHydrationLogs(),
+      loadJuiceLogs(),
+      loadBMLogs(),
+      loadMessages(),
+      loadTeamSettings()
+    ]);
+
+    renderDashboard();
+    alert(`Switched to caring for: ${currentPatientName}`);
+  } catch (err) {
+    alert('Error switching patient: ' + err.message);
   }
+}
 
-  // Handle Add Medication
-  async function handleAddMedication() {
-    const name = prompt('Medication name:');
-    if (!name) return;
+// Handle Add Medication
+async function handleAddMedication() {
+  const name = prompt('Medication name:');
+  if (!name) return;
 
-    const dosage = prompt('Dosage (e.g., 500mg):');
-    if (!dosage) return;
+  const dosage = prompt('Dosage (e.g., 500mg):');
+  if (!dosage) return;
 
-    const frequency = prompt('Frequency in hours (e.g., 8 for every 8 hours). Enter 0 for "As Needed":');
-    if (frequency === null || frequency === '') return;
+  const frequency = prompt('Frequency in hours (e.g., 8 for every 8 hours). Enter 0 for "As Needed":');
+  if (frequency === null || frequency === '') return;
 
-    const instructions = prompt('Instructions (optional):') || '';
+  const instructions = prompt('Instructions (optional):') || '';
 
-    // Create custom modal for Yes/No selection
-    const modal = document.createElement('div');
-    modal.className = 'fixed inset-0 bg-black/80 flex items-center justify-center z-50';
-    modal.innerHTML = `
+  // Create custom modal for Yes/No selection
+  const modal = document.createElement('div');
+  modal.className = 'fixed inset-0 bg-black/80 flex items-center justify-center z-50';
+  modal.innerHTML = `
     <div class="bg-slate-800 p-6 rounded-2xl w-full max-w-md border border-slate-700">
       <h3 class="text-xl font-bold text-slate-100 mb-4">Is this medication MANDATORY?</h3>
       <p class="text-slate-400 text-sm mb-6">
@@ -3610,126 +3611,126 @@ function renderDashboard() {
       </div>
     </div>
   `;
-    document.body.appendChild(modal);
+  document.body.appendChild(modal);
 
-    const isMandatory = await new Promise((resolve) => {
-      document.getElementById('mandatory-yes').onclick = () => {
-        document.body.removeChild(modal);
-        resolve(true);
-      };
-      document.getElementById('mandatory-no').onclick = () => {
-        document.body.removeChild(modal);
-        resolve(false);
-      };
-    });
+  const isMandatory = await new Promise((resolve) => {
+    document.getElementById('mandatory-yes').onclick = () => {
+      document.body.removeChild(modal);
+      resolve(true);
+    };
+    document.getElementById('mandatory-no').onclick = () => {
+      document.body.removeChild(modal);
+      resolve(false);
+    };
+  });
 
-    console.log('CareCircle: Adding medication:', { name, dosage, frequency, instructions, isMandatory });
+  console.log('CareCircle: Adding medication:', { name, dosage, frequency, instructions, isMandatory });
 
-    try {
-      // BMAD: Fix - Ensure caregiver record exists before adding medication
-      let caregiverRecordId = currentUser?.id;
+  try {
+    // BMAD: Fix - Ensure caregiver record exists before adding medication
+    let caregiverRecordId = currentUser?.id;
 
-      // Try to find a caregiver record matching the user's email
-      const { data: existingCaregiver, error: fetchError } = await supabase
+    // Try to find a caregiver record matching the user's email
+    const { data: existingCaregiver, error: fetchError } = await supabase
+      .from('caregivers')
+      .select('id')
+      .eq('email', currentUser?.email)
+      .single();
+
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      // PGRST116 is "not found", which is expected if the user is new
+      console.error('CareCircle: Error fetching caregiver:', fetchError);
+    }
+
+    if (existingCaregiver) {
+      caregiverRecordId = existingCaregiver.id;
+    } else {
+      // Create a new caregiver record for this user
+      const { data: newCaregiver, error: insertError } = await supabase
         .from('caregivers')
+        .insert({
+          email: currentUser?.email,
+          name: currentUser?.email?.split('@')[0] || 'User'
+        })
         .select('id')
-        .eq('email', currentUser?.email)
         .single();
 
-      if (fetchError && fetchError.code !== 'PGRST116') {
-        // PGRST116 is "not found", which is expected if the user is new
-        console.error('CareCircle: Error fetching caregiver:', fetchError);
-      }
-
-      if (existingCaregiver) {
-        caregiverRecordId = existingCaregiver.id;
-      } else {
-        // Create a new caregiver record for this user
-        const { data: newCaregiver, error: insertError } = await supabase
-          .from('caregivers')
-          .insert({
-            email: currentUser?.email,
-            name: currentUser?.email?.split('@')[0] || 'User'
-          })
-          .select('id')
-          .single();
-
-        if (insertError) {
-          alert('Failed to create caregiver profile: ' + insertError.message);
-          return;
-        }
-
-        if (newCaregiver) {
-          caregiverRecordId = newCaregiver.id;
-        }
-      }
-
-      // Calculate position for new medication (add at top)
-      // We sort ASC, so smaller number = higher up. We subtract 1 from the current minimum.
-      const minPosition = medications.length > 0 ? Math.min(...medications.map(m => m.position || 0)) : 0;
-      const newPosition = minPosition - 1;
-
-      // Now insert the medication using the correct caregivers table ID
-      const { error } = await supabase.from('medications').insert({
-        name,
-        dosage,
-        frequency_hours: parseInt(frequency),
-        instructions,
-        created_by: caregiverRecordId,
-        start_date: new Date().toISOString(),
-        duration_days: 30,
-        is_mandatory: isMandatory,
-        position: newPosition,
-        patient_id: currentPatientId
-      });
-
-      if (error) {
-        alert('Failed to add medication: ' + error.message);
+      if (insertError) {
+        alert('Failed to create caregiver profile: ' + insertError.message);
         return;
       }
 
-      await loadMedications();
-      renderDashboard();
-    } catch (err) {
-      alert('Error adding medication: ' + err.message);
+      if (newCaregiver) {
+        caregiverRecordId = newCaregiver.id;
+      }
     }
-  }
 
-  // Handle Delete Medication
-  async function handleDeleteMedication(medId) {
-    if (!confirm('Are you sure you want to delete this medication?')) return;
+    // Calculate position for new medication (add at top)
+    // We sort ASC, so smaller number = higher up. We subtract 1 from the current minimum.
+    const minPosition = medications.length > 0 ? Math.min(...medications.map(m => m.position || 0)) : 0;
+    const newPosition = minPosition - 1;
 
-    try {
-      const { error } = await supabase.from('medications').delete().eq('id', medId);
-      if (error) throw error;
+    // Now insert the medication using the correct caregivers table ID
+    const { error } = await supabase.from('medications').insert({
+      name,
+      dosage,
+      frequency_hours: parseInt(frequency),
+      instructions,
+      created_by: caregiverRecordId,
+      start_date: new Date().toISOString(),
+      duration_days: 30,
+      is_mandatory: isMandatory,
+      position: newPosition,
+      patient_id: currentPatientId
+    });
 
-      await loadMedications();
-      renderDashboard();
-    } catch (err) {
-      alert('Error deleting medication: ' + err.message);
+    if (error) {
+      alert('Failed to add medication: ' + error.message);
+      return;
     }
+
+    await loadMedications();
+    renderDashboard();
+  } catch (err) {
+    alert('Error adding medication: ' + err.message);
   }
+}
 
-  // Handle Edit Medication
-  async function handleEditMedication(medId) {
-    const med = medications.find(m => m.id === medId);
-    if (!med) return;
+// Handle Delete Medication
+async function handleDeleteMedication(medId) {
+  if (!confirm('Are you sure you want to delete this medication?')) return;
 
-    const name = prompt('Medication name:', med.name);
-    if (!name) return;
+  try {
+    const { error } = await supabase.from('medications').delete().eq('id', medId);
+    if (error) throw error;
 
-    const dosage = prompt('Dosage (e.g., 500mg):', med.dosage);
-    if (!dosage) return;
+    await loadMedications();
+    renderDashboard();
+  } catch (err) {
+    alert('Error deleting medication: ' + err.message);
+  }
+}
 
-    const frequency = prompt('Frequency in hours (e.g., 8 for every 8 hours). Enter 0 for "As Needed":', med.frequency_hours);
-    if (frequency === null || frequency === '') return;
+// Handle Edit Medication
+async function handleEditMedication(medId) {
+  const med = medications.find(m => m.id === medId);
+  if (!med) return;
 
-    const instructions = prompt('Instructions (optional):', med.instructions) || '';
+  const name = prompt('Medication name:', med.name);
+  if (!name) return;
 
-    // Create custom modal for Yes/No selection
-    const modal = document.createElement('div');
-    modal.className = 'fixed inset-0 bg-black/80 flex items-center justify-center z-50';
-    modal.innerHTML = `
+  const dosage = prompt('Dosage (e.g., 500mg):', med.dosage);
+  if (!dosage) return;
+
+  const frequency = prompt('Frequency in hours (e.g., 8 for every 8 hours). Enter 0 for "As Needed":', med.frequency_hours);
+  if (frequency === null || frequency === '') return;
+
+  const instructions = prompt('Instructions (optional):', med.instructions) || '';
+
+  // Create custom modal for Yes/No selection
+  const modal = document.createElement('div');
+  modal.className = 'fixed inset-0 bg-black/80 flex items-center justify-center z-50';
+  modal.innerHTML = `
     <div class="bg-slate-800 p-6 rounded-2xl w-full max-w-md border border-slate-700">
       <h3 class="text-xl font-bold text-slate-100 mb-4">Is this medication MANDATORY?</h3>
       <p class="text-slate-400 text-sm mb-6">
@@ -3748,202 +3749,202 @@ function renderDashboard() {
       </div>
     </div>
   `;
-    document.body.appendChild(modal);
+  document.body.appendChild(modal);
 
-    const isMandatory = await new Promise((resolve) => {
-      document.getElementById('mandatory-yes').onclick = () => {
-        document.body.removeChild(modal);
-        resolve(true);
-      };
-      document.getElementById('mandatory-no').onclick = () => {
-        document.body.removeChild(modal);
-        resolve(false);
-      };
-    });
+  const isMandatory = await new Promise((resolve) => {
+    document.getElementById('mandatory-yes').onclick = () => {
+      document.body.removeChild(modal);
+      resolve(true);
+    };
+    document.getElementById('mandatory-no').onclick = () => {
+      document.body.removeChild(modal);
+      resolve(false);
+    };
+  });
 
-    console.log('CareCircle: Editing medication:', { medId, name, dosage, frequency, instructions, isMandatory });
+  console.log('CareCircle: Editing medication:', { medId, name, dosage, frequency, instructions, isMandatory });
 
-    try {
-      const { error } = await supabase.from('medications').update({
-        name,
-        dosage,
-        frequency_hours: parseInt(frequency),
-        instructions,
-        is_mandatory: isMandatory
-      }).eq('id', medId);
+  try {
+    const { error } = await supabase.from('medications').update({
+      name,
+      dosage,
+      frequency_hours: parseInt(frequency),
+      instructions,
+      is_mandatory: isMandatory
+    }).eq('id', medId);
 
-      if (error) {
-        alert('Failed to update medication: ' + error.message);
-        return;
-      }
-
-      await loadMedications();
-      renderDashboard();
-    } catch (err) {
-      alert('Error updating medication: ' + err.message);
+    if (error) {
+      alert('Failed to update medication: ' + error.message);
+      return;
     }
+
+    await loadMedications();
+    renderDashboard();
+  } catch (err) {
+    alert('Error updating medication: ' + err.message);
   }
+}
 
-  // Handle Mark as Taken
-  async function handleMarkTaken(medId) {
-    console.log('CareCircle: Marking medication as taken:', medId);
+// Handle Mark as Taken
+async function handleMarkTaken(medId) {
+  console.log('CareCircle: Marking medication as taken:', medId);
 
-    try {
-      // BMAD: Fix - Find or create caregiver record for the current user
-      let caregiverRecordId = currentUser?.id;
+  try {
+    // BMAD: Fix - Find or create caregiver record for the current user
+    let caregiverRecordId = currentUser?.id;
 
-      // Try to find a caregiver record matching the user's email
-      const { data: existingCaregiver, error: fetchError } = await supabase
+    // Try to find a caregiver record matching the user's email
+    const { data: existingCaregiver, error: fetchError } = await supabase
+      .from('caregivers')
+      .select('id')
+      .eq('email', currentUser?.email)
+      .single();
+
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      // PGRST116 is "not found", which is expected if the user is new
+      console.error('CareCircle: Error fetching caregiver:', fetchError);
+    }
+
+    if (existingCaregiver) {
+      caregiverRecordId = existingCaregiver.id;
+    } else {
+      // Create a new caregiver record for this user
+      const { data: newCaregiver, error: insertError } = await supabase
         .from('caregivers')
+        .insert({
+          email: currentUser?.email,
+          name: currentUser?.email?.split('@')[0] || 'User'
+        })
         .select('id')
-        .eq('email', currentUser?.email)
         .single();
 
-      if (fetchError && fetchError.code !== 'PGRST116') {
-        // PGRST116 is "not found", which is expected if the user is new
-        console.error('CareCircle: Error fetching caregiver:', fetchError);
-      }
-
-      if (existingCaregiver) {
-        caregiverRecordId = existingCaregiver.id;
-      } else {
-        // Create a new caregiver record for this user
-        const { data: newCaregiver, error: insertError } = await supabase
-          .from('caregivers')
-          .insert({
-            email: currentUser?.email,
-            name: currentUser?.email?.split('@')[0] || 'User'
-          })
-          .select('id')
-          .single();
-
-        if (insertError) {
-          alert('Failed to create caregiver profile: ' + insertError.message);
-          return;
-        }
-
-        if (newCaregiver) {
-          caregiverRecordId = newCaregiver.id;
-        }
-      }
-
-      const now = new Date();
-      const windowStart = new Date(now.getTime() - 4 * 60 * 60 * 1000); // 4 hours before
-      const windowEnd = new Date(now.getTime() + 4 * 60 * 60 * 1000); // 4 hours after
-
-      const { error } = await supabase.from('med_logs').insert({
-        med_id: medId,
-        caregiver_id: caregiverRecordId,
-        window_start: windowStart.toISOString(),
-        window_end: windowEnd.toISOString(),
-        patient_id: currentPatientId
-      });
-
-      if (error) {
-        alert('Failed to log dose: ' + error.message);
+      if (insertError) {
+        alert('Failed to create caregiver profile: ' + insertError.message);
         return;
       }
 
-      // Success - Force immediate reload
-      await loadDashboard();
-    } catch (err) {
-      alert('Error logging dose: ' + err.message);
+      if (newCaregiver) {
+        caregiverRecordId = newCaregiver.id;
+      }
     }
+
+    const now = new Date();
+    const windowStart = new Date(now.getTime() - 4 * 60 * 60 * 1000); // 4 hours before
+    const windowEnd = new Date(now.getTime() + 4 * 60 * 60 * 1000); // 4 hours after
+
+    const { error } = await supabase.from('med_logs').insert({
+      med_id: medId,
+      caregiver_id: caregiverRecordId,
+      window_start: windowStart.toISOString(),
+      window_end: windowEnd.toISOString(),
+      patient_id: currentPatientId
+    });
+
+    if (error) {
+      alert('Failed to log dose: ' + error.message);
+      return;
+    }
+
+    // Success - Force immediate reload
+    await loadDashboard();
+  } catch (err) {
+    alert('Error logging dose: ' + err.message);
   }
+}
 
-  // Toggle medication history visibility
-  function toggleMedHistory(medId) {
-    showMedHistory[medId] = !showMedHistory[medId];
-    renderDashboard();
-  }
+// Toggle medication history visibility
+function toggleMedHistory(medId) {
+  showMedHistory[medId] = !showMedHistory[medId];
+  renderDashboard();
+}
 
-  // Load Messages
-  async function loadMessages() {
-    console.log('CareCircle: Loading messages...');
-    try {
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('patient_id', currentPatientId)
-        .order('created_at', { ascending: false })
-        .limit(50);
+// Load Messages
+async function loadMessages() {
+  console.log('CareCircle: Loading messages...');
+  try {
+    const { data, error } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('patient_id', currentPatientId)
+      .order('created_at', { ascending: false })
+      .limit(50);
 
-      if (error) {
-        // If table doesn't exist yet, just ignore
-        if (error.code === '42P01') {
-          console.log('Messages table not found, skipping.');
-          messages = [];
-          return;
-        }
-        console.error('CareCircle: Messages load error:', error);
+    if (error) {
+      // If table doesn't exist yet, just ignore
+      if (error.code === '42P01') {
+        console.log('Messages table not found, skipping.');
         messages = [];
         return;
       }
-
-      messages = data || [];
-
-      // Mark all loaded messages as read
-      messages.forEach(msg => {
-        readMessageIds.add(msg.id);
-      });
-    } catch (err) {
-      console.error('CareCircle: Messages exception:', err);
+      console.error('CareCircle: Messages load error:', error);
       messages = [];
+      return;
     }
+
+    messages = data || [];
+
+    // Mark all loaded messages as read
+    messages.forEach(msg => {
+      readMessageIds.add(msg.id);
+    });
+  } catch (err) {
+    console.error('CareCircle: Messages exception:', err);
+    messages = [];
   }
+}
 
-  // Check Daily Reset (Midnight Reset)
-  async function checkDailyReset() {
-    const today = new Date().toISOString().split('T')[0];
-    const lastReset = localStorage.getItem('lastResetDate');
+// Check Daily Reset (Midnight Reset)
+async function checkDailyReset() {
+  const today = new Date().toISOString().split('T')[0];
+  const lastReset = localStorage.getItem('lastResetDate');
 
-    if (lastReset !== today) {
-      console.log('CareCircle: Performing daily reset...');
+  if (lastReset !== today) {
+    console.log('CareCircle: Performing daily reset...');
 
-      try {
-        // 1. Reset Goals
-        // Only admin or first user needs to do this to avoid race conditions,
-        // but for simplicity we'll let anyone do it as it's idempotent-ish.
-        // Better: Check if goals are already default? No, user might have changed them.
-        // We'll just reset them.
+    try {
+      // 1. Reset Goals
+      // Only admin or first user needs to do this to avoid race conditions,
+      // but for simplicity we'll let anyone do it as it's idempotent-ish.
+      // Better: Check if goals are already default? No, user might have changed them.
+      // We'll just reset them.
 
-        // Update local state first
-        userHydrationGoal = 64;
-        userJuiceGoal = 20;
+      // Update local state first
+      userHydrationGoal = 64;
+      userJuiceGoal = 20;
 
-        // Update DB
-        const { data: settings } = await supabase.from('team_settings').select('id').single();
-        if (settings) {
-          await supabase.from('team_settings').update({
-            hydration_goal: 64,
-            juice_goal: 20
-          }).eq('id', settings.id);
-        }
-
-        // 2. Delete History (Water & Juice)
-        // Delete logs older than today (or just all logs from yesterday?)
-        // "Delete the history for both the water and juice on reset"
-        // This implies clearing the log tables completely or just for previous days?
-        // Usually "reset" means start fresh for today.
-        // If we delete *all* history, we lose long-term tracking.
-        // But the user said "Delete the history". I will delete ALL logs.
-
-        await supabase.from('hydration_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
-        await supabase.from('juice_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
-
-        // Update last reset date
-        localStorage.setItem('lastResetDate', today);
-        console.log('CareCircle: Daily reset complete');
-
-      } catch (err) {
-        console.error('CareCircle: Daily reset error:', err);
+      // Update DB
+      const { data: settings } = await supabase.from('team_settings').select('id').single();
+      if (settings) {
+        await supabase.from('team_settings').update({
+          hydration_goal: 64,
+          juice_goal: 20
+        }).eq('id', settings.id);
       }
+
+      // 2. Delete History (Water & Juice)
+      // Delete logs older than today (or just all logs from yesterday?)
+      // "Delete the history for both the water and juice on reset"
+      // This implies clearing the log tables completely or just for previous days?
+      // Usually "reset" means start fresh for today.
+      // If we delete *all* history, we lose long-term tracking.
+      // But the user said "Delete the history". I will delete ALL logs.
+
+      await supabase.from('hydration_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
+      await supabase.from('juice_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
+
+      // Update last reset date
+      localStorage.setItem('lastResetDate', today);
+      console.log('CareCircle: Daily reset complete');
+
+    } catch (err) {
+      console.error('CareCircle: Daily reset error:', err);
     }
   }
+}
 
-  // Check and Announce Update
-  async function checkAndAnnounceUpdate() {
-    const updateMsg = `🚀 CareCircle v3.4.1 - Latest Features
+// Check and Announce Update
+async function checkAndAnnounceUpdate() {
+  const updateMsg = `🚀 CareCircle v3.4.1 - Latest Features
 
 ✨ New Features Added:
 
@@ -3984,74 +3985,74 @@ function renderDashboard() {
 • Use "How to Use" guide for detailed instructions
 • All data syncs in real-time across team`;
 
-    // Only admin can post system updates to avoid duplicates
-    if (!isAdmin) return;
+  // Only admin can post system updates to avoid duplicates
+  if (!isAdmin) return;
 
-    // Check if this message exists in the last 10 messages
-    const hasUpdate = messages.slice(0, 10).some(m => m.content === updateMsg);
+  // Check if this message exists in the last 10 messages
+  const hasUpdate = messages.slice(0, 10).some(m => m.content === updateMsg);
 
-    if (!hasUpdate) {
-      console.log('CareCircle: Posting update message...');
-      try {
-        const { error } = await supabase.from('messages').insert({
-          sender_id: currentUser.id,
-          content: updateMsg,
-          created_at: new Date().toISOString(),
-          patient_id: currentPatientId
-        });
-
-        if (!error) {
-          await loadMessages();
-        }
-      } catch (err) {
-        console.error('Error posting update:', err);
-      }
-    }
-  }
-
-  // Handle Send Message
-  async function handleSendMessage() {
-    const input = document.getElementById('message-input');
-    const content = input.value.trim();
-
-    if (!content) return;
-
+  if (!hasUpdate) {
+    console.log('CareCircle: Posting update message...');
     try {
-      // Find caregiver ID
-      const { data: caregiver } = await supabase
-        .from('caregivers')
-        .select('id')
-        .eq('email', currentUser.email)
-        .single();
-
-      if (!caregiver) return;
-
       const { error } = await supabase.from('messages').insert({
-        sender_id: caregiver.id,
-        content: content,
+        sender_id: currentUser.id,
+        content: updateMsg,
         created_at: new Date().toISOString(),
         patient_id: currentPatientId
       });
 
-      if (error) throw error;
-
-      input.value = '';
-      await loadMessages();
-      renderDashboard();
+      if (!error) {
+        await loadMessages();
+      }
     } catch (err) {
-      alert('Error sending message: ' + err.message);
+      console.error('Error posting update:', err);
     }
   }
+}
 
-  // Handle Log Past Dose
-  async function handleLogPastDose(medId) {
-    // Create modal if it doesn't exist
-    let modal = document.getElementById('log-past-modal');
-    if (!modal) {
-      modal = document.createElement('div');
-      modal.id = 'log-past-modal';
-      modal.className = 'fixed inset-0 bg-black/80 flex items-center justify-center z-50';
-      modal.innerHTML = `
+// Handle Send Message
+async function handleSendMessage() {
+  const input = document.getElementById('message-input');
+  const content = input.value.trim();
+
+  if (!content) return;
+
+  try {
+    // Find caregiver ID
+    const { data: caregiver } = await supabase
+      .from('caregivers')
+      .select('id')
+      .eq('email', currentUser.email)
+      .single();
+
+    if (!caregiver) return;
+
+    const { error } = await supabase.from('messages').insert({
+      sender_id: caregiver.id,
+      content: content,
+      created_at: new Date().toISOString(),
+      patient_id: currentPatientId
+    });
+
+    if (error) throw error;
+
+    input.value = '';
+    await loadMessages();
+    renderDashboard();
+  } catch (err) {
+    alert('Error sending message: ' + err.message);
+  }
+}
+
+// Handle Log Past Dose
+async function handleLogPastDose(medId) {
+  // Create modal if it doesn't exist
+  let modal = document.getElementById('log-past-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'log-past-modal';
+    modal.className = 'fixed inset-0 bg-black/80 flex items-center justify-center z-50';
+    modal.innerHTML = `
       <div class="bg-slate-800 p-6 rounded-2xl w-full max-w-md border border-slate-700">
         <h3 class="text-xl font-bold text-slate-100 mb-4">Log Past Dose</h3>
         <p class="text-slate-400 text-sm mb-4">Select the date and time when the medication was administered.</p>
@@ -4068,131 +4069,131 @@ function renderDashboard() {
         </div>
       </div>
     `;
-      document.body.appendChild(modal);
-    }
-
-    // Set default time to now
-    const dateInput = document.getElementById('past-dose-date');
-    const now = new Date();
-    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-    dateInput.value = now.toISOString().slice(0, 16);
-
-    modal.classList.remove('hidden');
-
-    // Handle actions
-    return new Promise((resolve) => {
-      const close = () => {
-        modal.classList.add('hidden');
-        resolve();
-      };
-
-      document.getElementById('cancel-past-dose').onclick = close;
-
-      document.getElementById('confirm-past-dose').onclick = async () => {
-        const dateStr = dateInput.value;
-        if (!dateStr) return;
-
-        const date = new Date(dateStr);
-        if (isNaN(date.getTime())) {
-          alert('Invalid date format');
-          return;
-        }
-
-        try {
-          // Find caregiver ID
-          const { data: caregiver } = await supabase
-            .from('caregivers')
-            .select('id')
-            .eq('email', currentUser.email)
-            .single();
-
-          if (!caregiver) return;
-
-          // Calculate window based on the past date
-          const windowStart = new Date(date.getTime() - 4 * 60 * 60 * 1000);
-          const windowEnd = new Date(date.getTime() + 4 * 60 * 60 * 1000);
-
-          const { error } = await supabase.from('med_logs').insert({
-            med_id: medId,
-            caregiver_id: caregiver.id,
-            administered_at: date.toISOString(),
-            window_start: windowStart.toISOString(),
-            window_end: windowEnd.toISOString(),
-            patient_id: currentPatientId
-          });
-
-          if (error) throw error;
-
-          close();
-          await loadDashboard();
-        } catch (err) {
-          alert('Error logging past dose: ' + err.message);
-        }
-      };
-    });
+    document.body.appendChild(modal);
   }
 
-  // Handle Export History
-  function handleExportHistory() {
-    if (!medLogs.length) {
-      alert('No history to export');
-      return;
-    }
+  // Set default time to now
+  const dateInput = document.getElementById('past-dose-date');
+  const now = new Date();
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  dateInput.value = now.toISOString().slice(0, 16);
 
-    const headers = ['Date', 'Time', 'Medication', 'Caregiver'];
-    const rows = medLogs.map(log => {
-      // Fix: Use correct column names (medication_id, caregiver_id)
-      const med = medications.find(m => m.id === log.medication_id);
-      const cg = caregivers.find(c => c.id === log.caregiver_id);
-      const date = new Date(log.administered_at);
+  modal.classList.remove('hidden');
 
-      // Format date and time with proper locale settings
-      const dateStr = date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit'
-      });
-      const timeStr = date.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-      });
+  // Handle actions
+  return new Promise((resolve) => {
+    const close = () => {
+      modal.classList.add('hidden');
+      resolve();
+    };
 
-      return [
-        dateStr,
-        timeStr,
-        med ? med.name : 'Unknown',
-        cg ? cg.name : 'Unknown'
-      ];
+    document.getElementById('cancel-past-dose').onclick = close;
+
+    document.getElementById('confirm-past-dose').onclick = async () => {
+      const dateStr = dateInput.value;
+      if (!dateStr) return;
+
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) {
+        alert('Invalid date format');
+        return;
+      }
+
+      try {
+        // Find caregiver ID
+        const { data: caregiver } = await supabase
+          .from('caregivers')
+          .select('id')
+          .eq('email', currentUser.email)
+          .single();
+
+        if (!caregiver) return;
+
+        // Calculate window based on the past date
+        const windowStart = new Date(date.getTime() - 4 * 60 * 60 * 1000);
+        const windowEnd = new Date(date.getTime() + 4 * 60 * 60 * 1000);
+
+        const { error } = await supabase.from('med_logs').insert({
+          med_id: medId,
+          caregiver_id: caregiver.id,
+          administered_at: date.toISOString(),
+          window_start: windowStart.toISOString(),
+          window_end: windowEnd.toISOString(),
+          patient_id: currentPatientId
+        });
+
+        if (error) throw error;
+
+        close();
+        await loadDashboard();
+      } catch (err) {
+        alert('Error logging past dose: ' + err.message);
+      }
+    };
+  });
+}
+
+// Handle Export History
+function handleExportHistory() {
+  if (!medLogs.length) {
+    alert('No history to export');
+    return;
+  }
+
+  const headers = ['Date', 'Time', 'Medication', 'Caregiver'];
+  const rows = medLogs.map(log => {
+    // Fix: Use correct column names (medication_id, caregiver_id)
+    const med = medications.find(m => m.id === log.medication_id);
+    const cg = caregivers.find(c => c.id === log.caregiver_id);
+    const date = new Date(log.administered_at);
+
+    // Format date and time with proper locale settings
+    const dateStr = date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    const timeStr = date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
     });
 
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.join(','))
-    ].join('\n');
+    return [
+      dateStr,
+      timeStr,
+      med ? med.name : 'Unknown',
+      cg ? cg.name : 'Unknown'
+    ];
+  });
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', 'medication_history.csv');
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  }
+  const csvContent = [
+    headers.join(','),
+    ...rows.map(row => row.join(','))
+  ].join('\n');
 
-  // Handle Logout
-  async function handleLogout() {
-    console.log('CareCircle: Logging out...');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  link.setAttribute('href', url);
+  link.setAttribute('download', 'medication_history.csv');
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
 
-    await supabase.auth.signOut();
-    currentUser = null;
-    medications = [];
-    caregivers = [];
+// Handle Logout
+async function handleLogout() {
+  console.log('CareCircle: Logging out...');
 
-    showLogin();
-  }
+  await supabase.auth.signOut();
+  currentUser = null;
+  medications = [];
+  caregivers = [];
 
-  // Initialize app when DOM is loaded
-  document.addEventListener('DOMContentLoaded', init);
+  showLogin();
+}
+
+// Initialize app when DOM is loaded
+document.addEventListener('DOMContentLoaded', init);
