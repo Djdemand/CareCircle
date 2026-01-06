@@ -1,144 +1,159 @@
 import React, { useState, useEffect } from 'react';
-import { View, TextInput, StyleSheet, Alert, ScrollView, TouchableOpacity, Text } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { supabase } from '../utils/supabase';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '../App';
+import { useAuth } from '../hooks/useAuth';
+import { getCurrentPatientId, insertMedication } from '../utils/multitenancyHelper';
 
-interface Medication {
-  id: string;
-  name: string;
-  dosage: string;
-  frequency_hours: number;
-  duration_days: number;
-  start_date: string;
-  position?: number;
-  is_mandatory?: boolean;
-}
+type RootStackParamList = {
+  AddMedication: { patientId?: string; caregiverId?: string };
+  MedicationList: undefined;
+};
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AddMedication'>;
 
-export const AddMedication = ({ route, navigation }: Props) => {
-  const editingMedication = route.params?.editingMedication;
-  const caregiverId = route.params?.caregiverId || '';
+export default function AddMedication({ route, navigation }: Props) {
+  const { user } = useAuth();
+  const { patientId: routePatientId, caregiverId: routeCaregiverId } = route.params || {};
   
   const [name, setName] = useState('');
   const [dosage, setDosage] = useState('');
-  const [freq, setFreq] = useState('8'); // hours
-  const [duration, setDuration] = useState('7'); // days
+  const [freq, setFreq] = useState('8');
+  const [duration, setDuration] = useState('7');
   const [isMandatory, setIsMandatory] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [patientId, setPatientId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (editingMedication) {
-      setName(editingMedication.name);
-      setDosage(editingMedication.dosage);
-      setFreq(editingMedication.frequency_hours.toString());
-      setDuration(editingMedication.duration_days.toString());
-      setIsMandatory(editingMedication.is_mandatory || false);
+    if (user) {
+      loadPatientId();
     }
-  }, [editingMedication]);
+  }, [user]);
+
+  const loadPatientId = async () => {
+    try {
+      const id = await getCurrentPatientId();
+      setPatientId(id);
+    } catch (error: any) {
+      console.error('Error loading patient ID:', error);
+      Alert.alert('Error', 'Could not load patient information');
+    }
+  };
 
   const saveMed = async () => {
-    // BMAD: Analyze - The caregiverId prop might be an Auth ID, but the DB expects a caregivers table ID.
-    // We need to ensure a caregivers record exists for the current user.
-    
-    const { data: { user } } = await supabase.auth.getUser();
-    
+    if (!name.trim() || !dosage.trim()) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
     if (!user) {
       Alert.alert('Error', 'You must be logged in to add medications');
       return;
     }
 
-    // BMAD: Develop - Find or create the caregiver record
-    let caregiverRecordId = caregiverId;
-
-    // Try to find a caregiver record matching the user's email
-    const { data: existingCaregiver, error: fetchError } = await supabase
-      .from('caregivers')
-      .select('id')
-      .eq('email', user.email)
-      .single();
-
-    if (fetchError && fetchError.code !== 'PGRST116') {
-      // PGRST116 is "not found", which is expected if the user is new
-      console.error('Error fetching caregiver:', fetchError);
+    if (!patientId) {
+      Alert.alert('Error', 'Patient information not loaded');
+      return;
     }
 
-    if (existingCaregiver) {
-      caregiverRecordId = existingCaregiver.id;
-    } else {
-      // Create a new caregiver record for this user
-      const { data: newCaregiver, error: insertError } = await supabase
-        .from('caregivers')
-        .insert({
-          email: user.email,
-          name: user.email?.split('@')[0] || 'User' // Default name from email
-        })
-        .select('id')
-        .single();
+    setLoading(true);
 
-      if (insertError) {
-        Alert.alert('Error', `Failed to create caregiver profile: ${insertError.message}`);
-        return;
+    try {
+      // Get caregiver record ID
+      let caregiverRecordId = routeCaregiverId;
+      
+      // Try to find a caregiver record matching the user's email
+      const { data: existingCaregiver, error: fetchError } = await supabase
+        .from('caregivers')
+        .select('id')
+        .eq('email', user.email)
+        .maybeSingle();
+
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        console.error('Error fetching caregiver:', fetchError);
       }
 
-      if (newCaregiver) {
+      if (existingCaregiver) {
+        caregiverRecordId = existingCaregiver.id;
+      } else {
+        // Create a new caregiver record
+        const { data: newCaregiver, error: insertError } = await supabase
+          .from('caregivers')
+          .insert({
+            id: user.id,
+            email: user.email,
+            name: user.email?.split('@')[0] || 'User',
+            patient_id: patientId
+          })
+          .select('id')
+          .single();
+
+        if (insertError) {
+          console.error('Error creating caregiver:', insertError);
+          Alert.alert('Error', 'Failed to create caregiver record');
+          return;
+        }
+
         caregiverRecordId = newCaregiver.id;
       }
-    }
 
-    // Get current min position for new medications (to add at top)
-    let position = 0;
-    if (!editingMedication) {
+      // Check if medication already exists
       const { data: existingMeds } = await supabase
         .from('medications')
-        .select('position')
+        .select('id, position')
+        .eq('name', name.trim())
+        .eq('patient_id', patientId)
         .order('position', { ascending: true })
         .limit(1);
-      
+
       if (existingMeds && existingMeds.length > 0) {
-        position = (existingMeds[0].position || 0) - 1;
-      }
-    } else {
-      position = editingMedication.position || 0;
-    }
+        // Update existing medication
+        const { error: updateError } = await supabase
+          .from('medications')
+          .update({
+            dosage: dosage.trim(),
+            frequency_hours: parseInt(freq),
+            duration_days: parseInt(duration),
+            is_mandatory: isMandatory
+          })
+          .eq('id', existingMeds[0].id);
 
-    if (editingMedication) {
-      // Update existing medication
-      const { error } = await supabase
-        .from('medications')
-        .update({
-          name,
-          dosage,
-          frequency_hours: parseInt(freq),
-          duration_days: parseInt(duration),
-          is_mandatory: isMandatory,
-        })
-        .eq('id', editingMedication.id);
+        if (updateError) {
+          console.error('Error updating medication:', updateError);
+          Alert.alert('Error', 'Failed to update medication');
+          return;
+        }
 
-      if (error) {
-        Alert.alert('Error', error.message);
-      } else {
         Alert.alert('Success', 'Medication updated successfully');
         navigation.goBack();
-      }
-    } else {
-      // Insert new medication at the top (position 0)
-      const { error } = await supabase
-        .from('medications')
-        .insert({
-          name,
-          dosage,
+      } else {
+        // Get the highest position for new medication
+        const { data: maxPos } = await supabase
+          .from('medications')
+          .select('position')
+          .eq('patient_id', patientId)
+          .order('position', { ascending: false })
+          .limit(1);
+
+        const newPosition = maxPos && maxPos.length > 0 ? (maxPos[0].position || 0) + 1 : 0;
+
+        // Insert new medication using helper
+        if (!caregiverRecordId) {
+          Alert.alert('Error', 'Caregiver ID not found');
+          return;
+        }
+
+        await insertMedication({
+          name: name.trim(),
+          dosage: dosage.trim(),
           frequency_hours: parseInt(freq),
           duration_days: parseInt(duration),
           start_date: new Date().toISOString(),
           created_by: caregiverRecordId,
           is_mandatory: isMandatory,
-          position: 0, // Always add new medications at the top
+          position: newPosition
         });
 
-      if (error) {
-        Alert.alert('Error', error.message);
-      } else {
         Alert.alert('Success', 'Medication added to the team schedule');
         setName('');
         setDosage('');
@@ -147,158 +162,176 @@ export const AddMedication = ({ route, navigation }: Props) => {
         setIsMandatory(false);
         navigation.goBack();
       }
+    } catch (error: any) {
+      console.error('Error in saveMed:', error);
+      Alert.alert('Error', error.message || 'An unexpected error occurred');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleMandatoryQuestion = () => {
-    Alert.alert(
-      'Is this medication mandatory?',
-      'Should this medication be marked as mandatory?',
-      [
-        {
-          text: 'Yes',
-          onPress: () => setIsMandatory(true),
-        },
-        {
-          text: 'No',
-          onPress: () => setIsMandatory(false),
-        },
-      ]
+  if (!patientId) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.loadingText}>Loading...</Text>
+      </View>
     );
-  };
+  }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-      <Text style={styles.title}>
-        {editingMedication ? 'Edit Medication' : 'Add New Medication'}
-      </Text>
-      
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Medication Name</Text>
-        <TextInput 
-          placeholder="e.g., Aspirin" 
-          value={name} 
-          onChangeText={setName} 
-          style={styles.input}
-          placeholderTextColor="#64748b"
-        />
-      </View>
+    <KeyboardAvoidingView 
+      style={styles.container} 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <Text style={styles.title}>Add Medication</Text>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Dosage</Text>
-        <TextInput 
-          placeholder="e.g., 500mg" 
-          value={dosage} 
-          onChangeText={setDosage} 
-          style={styles.input}
-          placeholderTextColor="#64748b"
-        />
-      </View>
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Medication Name</Text>
+          <TextInput
+            style={styles.input}
+            value={name}
+            onChangeText={setName}
+            placeholder="e.g., Lisinopril"
+            placeholderTextColor="#999"
+          />
+        </View>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Frequency (hours between doses)</Text>
-        <TextInput 
-          placeholder="e.g., 8" 
-          value={freq} 
-          onChangeText={setFreq} 
-          keyboardType="numeric"
-          style={styles.input}
-          placeholderTextColor="#64748b"
-        />
-      </View>
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Dosage</Text>
+          <TextInput
+            style={styles.input}
+            value={dosage}
+            onChangeText={setDosage}
+            placeholder="e.g., 10mg"
+            placeholderTextColor="#999"
+          />
+        </View>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Duration (days)</Text>
-        <TextInput 
-          placeholder="e.g., 7" 
-          value={duration} 
-          onChangeText={setDuration} 
-          keyboardType="numeric"
-          style={styles.input}
-          placeholderTextColor="#64748b"
-        />
-      </View>
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Frequency (hours)</Text>
+          <TextInput
+            style={styles.input}
+            value={freq}
+            onChangeText={setFreq}
+            placeholder="e.g., 8"
+            keyboardType="numeric"
+            placeholderTextColor="#999"
+          />
+        </View>
 
-      <TouchableOpacity 
-        style={[styles.mandatoryButton, isMandatory && styles.mandatoryButtonActive]}
-        onPress={handleMandatoryQuestion}
-      >
-        <Text style={[styles.mandatoryButtonText, isMandatory && styles.mandatoryButtonTextActive]}>
-          {isMandatory ? '✓ Mandatory' : 'Mark as Mandatory'}
-        </Text>
-      </TouchableOpacity>
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Duration (days)</Text>
+          <TextInput
+            style={styles.input}
+            value={duration}
+            onChangeText={setDuration}
+            placeholder="e.g., 7"
+            keyboardType="numeric"
+            placeholderTextColor="#999"
+          />
+        </View>
 
-      <TouchableOpacity style={styles.saveButton} onPress={saveMed}>
-        <Text style={styles.saveButtonText}>
-          {editingMedication ? 'Update Medication' : 'Add Medication'}
-        </Text>
-      </TouchableOpacity>
-    </ScrollView>
+        <TouchableOpacity
+          style={styles.checkboxContainer}
+          onPress={() => setIsMandatory(!isMandatory)}
+        >
+          <View style={[styles.checkbox, isMandatory && styles.checkboxChecked]}>
+            {isMandatory && <Text style={styles.checkmark}>✓</Text>}
+          </View>
+          <Text style={styles.checkboxLabel}>Mark as mandatory</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.button, loading && styles.buttonDisabled]}
+          onPress={saveMed}
+          disabled={loading}
+        >
+          <Text style={styles.buttonText}>
+            {loading ? 'Saving...' : 'Save Medication'}
+          </Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#f5f5f5',
   },
   scrollContent: {
     padding: 20,
   },
+  loadingText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginTop: 20,
+  },
   title: {
     fontSize: 28,
-    fontWeight: '900',
-    color: '#f8fafc',
-    marginBottom: 24,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+    marginBottom: 30,
+    textAlign: 'center',
   },
-  inputGroup: {
+  inputContainer: {
     marginBottom: 20,
   },
   label: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
-    color: '#f8fafc',
+    color: '#34495e',
     marginBottom: 8,
   },
   input: {
-    backgroundColor: '#1e293b',
-    borderWidth: 1,
-    borderColor: '#334155',
-    padding: 16,
-    borderRadius: 12,
-    color: '#f8fafc',
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 15,
     fontSize: 16,
-  },
-  mandatoryButton: {
-    backgroundColor: '#1e293b',
     borderWidth: 1,
-    borderColor: '#334155',
-    borderRadius: 12,
-    padding: 16,
+    borderColor: '#e0e0e0',
+  },
+  checkboxContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 30,
   },
-  mandatoryButtonActive: {
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-    borderColor: '#3b82f6',
-  },
-  mandatoryButtonText: {
-    color: '#94a3b8',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  mandatoryButtonTextActive: {
-    color: '#3b82f6',
-  },
-  saveButton: {
-    backgroundColor: '#3b82f6',
-    borderRadius: 12,
-    padding: 18,
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#3498db',
+    marginRight: 12,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  saveButtonText: {
-    color: '#f8fafc',
+  checkboxChecked: {
+    backgroundColor: '#3498db',
+  },
+  checkmark: {
+    color: '#fff',
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: 'bold',
+  },
+  checkboxLabel: {
+    fontSize: 16,
+    color: '#34495e',
+  },
+  button: {
+    backgroundColor: '#3498db',
+    borderRadius: 10,
+    padding: 16,
+    alignItems: 'center',
+  },
+  buttonDisabled: {
+    backgroundColor: '#bdc3c7',
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
 });

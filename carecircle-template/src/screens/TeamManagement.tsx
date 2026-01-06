@@ -81,6 +81,17 @@ export const TeamManagement = () => {
     setInviting(true);
 
     try {
+      // Fetch current user's patient_id
+      const { data: currentUserCaregiver } = await supabase
+        .from('caregivers')
+        .select('patient_id')
+        .eq('id', user?.id)
+        .single();
+
+      if (!currentUserCaregiver?.patient_id) {
+        throw new Error('Could not find your patient circle');
+      }
+
       // In a real app, you would send an invite email here
       // For now, we'll create a placeholder caregiver record
       const { error } = await supabase
@@ -88,6 +99,7 @@ export const TeamManagement = () => {
         .insert({
           email: inviteEmail.trim(),
           name: inviteEmail.split('@')[0],
+          patient_id: currentUserCaregiver.patient_id,
         });
 
       if (error) throw error;

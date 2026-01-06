@@ -5,7 +5,8 @@ import {
   TouchableOpacity, 
   StyleSheet, 
   ScrollView, 
-  Alert 
+  Alert,
+  Platform
 } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../utils/supabase';
@@ -17,10 +18,15 @@ import {
   LogOut, 
   User,
   Clock,
-  CheckCircle
+  CheckCircle,
+  CupSoda,
+  Calendar,
+  HelpCircle,
+  Download
 } from 'lucide-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../App';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Dashboard'>;
 
@@ -38,6 +44,8 @@ interface MedLog {
   medication_id: string;
   taken_at: string;
   taken_by: string;
+  medications?: { name: string };
+  caregivers?: { name: string };
 }
 
 interface Caregiver {
@@ -52,14 +60,42 @@ export const Dashboard = ({ navigation }: Props) => {
   const [medLogs, setMedLogs] = useState<MedLog[]>([]);
   const [caregivers, setCaregivers] = useState<Caregiver[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showHowToUse, setShowHowToUse] = useState(false);
+  const [patientName, setPatientName] = useState<string>('');
 
   useEffect(() => {
     loadData();
     setupRealtimeSubscription();
+    checkDailyReset();
   }, []);
+
+  const checkDailyReset = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const lastReset = await AsyncStorage.getItem('lastResetDate');
+      
+      if (lastReset !== today) {
+        console.log('Performing daily reset...');
+        await AsyncStorage.setItem('lastResetDate', today);
+      }
+    } catch (error) {
+      console.error('Error checking daily reset:', error);
+    }
+  };
 
   const loadData = async () => {
     try {
+      // Load current caregiver to get patient name
+      const { data: currentCaregiver } = await supabase
+        .from('caregivers')
+        .select('*, patients(name)')
+        .eq('id', user?.id)
+        .single();
+
+      if (currentCaregiver?.patients) {
+        setPatientName(currentCaregiver.patients.name);
+      }
+
       // Load medications
       const { data: medsData } = await supabase
         .from('medications')
@@ -69,7 +105,7 @@ export const Dashboard = ({ navigation }: Props) => {
       // Load medication logs
       const { data: logsData } = await supabase
         .from('med_logs')
-        .select('*')
+        .select('*, medications(name), caregivers(name)')
         .gte('taken_at', new Date().toISOString().split('T')[0])
         .order('taken_at', { ascending: false });
 
@@ -106,6 +142,45 @@ export const Dashboard = ({ navigation }: Props) => {
     await supabase.auth.signOut();
   };
 
+  const handleExport = async () => {
+    try {
+      const { data: logs } = await supabase
+        .from('med_logs')
+        .select('*, medications(name), caregivers(name)')
+        .order('taken_at', { ascending: false })
+        .limit(100);
+
+      if (!logs || logs.length === 0) {
+        Alert.alert('Export', 'No logs to export');
+        return;
+      }
+
+      const csvHeader = 'Date,Time,Medication,Caregiver\n';
+      const csvRows = logs.map(log => {
+        const date = new Date(log.taken_at);
+        return `${date.toLocaleDateString()},${date.toLocaleTimeString()},"${log.medications?.name || 'Unknown'}","${log.caregivers?.name || 'Unknown'}"`;
+      }).join('\n');
+
+      const csvContent = csvHeader + csvRows;
+      
+      if (Platform.OS === 'web') {
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', 'medication_history.csv');
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        Alert.alert('Export', 'Export is only available on web version');
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.message);
+    }
+  };
+
   const getTodayDoseCount = () => {
     const today = new Date().toISOString().split('T')[0];
     return medLogs.filter(log => log.taken_at.startsWith(today)).length;
@@ -134,7 +209,7 @@ export const Dashboard = ({ navigation }: Props) => {
     icon: any; 
     label: string; 
     value: string | number; 
-    color: string;
+    color: string; 
     onPress?: () => void;
   }) => (
     <TouchableOpacity 
@@ -157,6 +232,9 @@ export const Dashboard = ({ navigation }: Props) => {
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>Hello, {user?.email?.split('@')[0]}</Text>
+            {patientName ? (
+              <Text style={styles.patientName}>Caring for: {patientName}</Text>
+            ) : null}
             <Text style={styles.date}>
               {new Date().toLocaleDateString('en-US', { 
                 weekday: 'long', 
@@ -165,10 +243,32 @@ export const Dashboard = ({ navigation }: Props) => {
               })}
             </Text>
           </View>
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <LogOut size={20} color="#ef4444" />
-          </TouchableOpacity>
+          <View style={styles.headerButtons}>
+            <TouchableOpacity style={styles.iconButton} onPress={handleExport}>
+              <Download size={20} color="#3b82f6" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.iconButton} onPress={() => setShowHowToUse(!showHowToUse)}>
+              <HelpCircle size={20} color="#3b82f6" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.iconButton} onPress={handleLogout}>
+              <LogOut size={20} color="#ef4444" />
+            </TouchableOpacity>
+          </View>
         </View>
+
+        {/* How to Use Guide */}
+        {showHowToUse && (
+          <View style={styles.guideCard}>
+            <Text style={styles.guideTitle}>📖 How to Use CareCircle</Text>
+            <Text style={styles.guideText}>
+              1. <Text style={styles.bold}>Add Medications:</Text> Use the "Add Medication" button to set up your schedule.{'\n'}
+              2. <Text style={styles.bold}>Track Doses:</Text> Tap "Active Meds" to see what's due and mark as taken.{'\n'}
+              3. <Text style={styles.bold}>Team:</Text> Invite caregivers in the "Team Members" section.{'\n'}
+              4. <Text style={styles.bold}>Hydration/Juice:</Text> Track liquid intake with dedicated trackers.{'\n'}
+              5. <Text style={styles.bold}>Bowel Health:</Text> Log daily BM status.
+            </Text>
+          </View>
+        )}
 
         {/* Stats Grid */}
         <View style={styles.statsGrid}>
@@ -199,6 +299,20 @@ export const Dashboard = ({ navigation }: Props) => {
             value="Track"
             color="#06b6d4"
             onPress={() => navigation.navigate('HydrationTracker')}
+          />
+          <StatCard
+            icon={CupSoda}
+            label="Juice"
+            value="Track"
+            color="#f97316"
+            onPress={() => navigation.navigate('JuiceTracker')}
+          />
+          <StatCard
+            icon={Calendar}
+            label="Bowel Health"
+            value="Log"
+            color="#10b981"
+            onPress={() => navigation.navigate('BMTracker')}
           />
         </View>
 
@@ -290,17 +404,50 @@ const styles = StyleSheet.create({
     color: '#f8fafc',
     marginBottom: 4,
   },
+  patientName: {
+    fontSize: 16,
+    color: '#3b82f6',
+    fontWeight: '700',
+    marginBottom: 4,
+  },
   date: {
     fontSize: 14,
     color: '#94a3b8',
   },
-  logoutButton: {
+  headerButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  iconButton: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    backgroundColor: 'rgba(30, 41, 59, 0.5)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  guideCard: {
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.2)',
+  },
+  guideTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#3b82f6',
+    marginBottom: 12,
+  },
+  guideText: {
+    color: '#cbd5e1',
+    fontSize: 14,
+    lineHeight: 22,
+  },
+  bold: {
+    fontWeight: '700',
+    color: '#f8fafc',
   },
   statsGrid: {
     flexDirection: 'row',

@@ -5,8 +5,8 @@
 // Go to your project > Settings > API
 
 window.SUPABASE_CONFIG = {
-  URL: 'https://oydyrdcnoygrzjapanbd.supabase.co',
-  ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95ZHlyZGNub3lncnpqYXBhbmJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY0OTE1MjIsImV4cCI6MjA4MjA2NzUyMn0.lvQkpUe4tSbElwKjUCz75RISH6E59U1JGuYZU9wDuDo'
+  URL: 'https://qoafuhkxzpjumksprrox.supabase.co',
+  ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFvYWZ1aGt4enBqdW1rc3Bycm94Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0MjEyMjQsImV4cCI6MjA4Mjk5NzIyNH0.RDvQIshzgblzssxNrOCsjmhBp15qNiW_E-wG7eNThtE'
 };
 
 console.log('CareCircle: Supabase config loaded');

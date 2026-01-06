@@ -19,14 +19,17 @@ export const Login = () => {
   const [patientName, setPatientName] = useState('');
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
   const handleAuth = async () => {
+    setErrorMsg('');
     if (!email || !password || (isSignUp && !patientName)) {
-      Alert.alert('Error', 'Please fill in all fields');
+      setErrorMsg('Please fill in all fields');
       return;
     }
 
     setLoading(true);
+    console.log('Attempting auth:', isSignUp ? 'SignUp' : 'SignIn', email);
 
     try {
       if (isSignUp) {
@@ -40,45 +43,50 @@ export const Login = () => {
 
         // Create caregiver profile
         if (data.user) {
-          // 1. Create Patient
-          const { data: patientData, error: patientError } = await supabase
-            .from('patients')
-            .insert({ name: patientName })
-            .select()
-            .single();
+          console.log('User created, creating profile...');
+          // Use RPC to create patient and caregiver in one transaction (bypassing RLS issues)
+          const { error: rpcError } = await supabase.rpc('create_patient_and_caregiver', {
+            patient_name: patientName,
+            caregiver_name: email.split('@')[0],
+            caregiver_email: data.user.email!,
+            caregiver_id: data.user.id
+          });
 
-          if (patientError) throw patientError;
-
-          // 2. Create Caregiver linked to Patient
-          const { error: profileError } = await supabase
-            .from('caregivers')
-            .insert({
-              id: data.user.id,
-              email: data.user.email!,
-              name: email.split('@')[0], // Use email prefix as default name
-              patient_id: patientData.id,
-              is_admin: true,
-            });
-
-          if (profileError) throw profileError;
+          if (rpcError) {
+            console.error('RPC Error:', rpcError);
+            throw rpcError;
+          }
         }
 
-        Alert.alert(
-          'Success',
-          'Account created! You can now log in.',
-          [{ text: 'OK', onPress: () => setIsSignUp(false) }]
-        );
+        if (Platform.OS === 'web') {
+          window.alert('Account created! You can now log in.');
+        } else {
+          Alert.alert(
+            'Success',
+            'Account created! You can now log in.',
+            [{ text: 'OK', onPress: () => setIsSignUp(false) }]
+          );
+        }
+        setIsSignUp(false);
       } else {
         // Sign in existing user
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
 
-        if (error) throw error;
+        if (error) {
+          console.error('Login error:', error);
+          throw error;
+        }
+        console.log('Login successful:', data);
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message);
+      console.error('Auth error:', error);
+      setErrorMsg(error.message || 'An error occurred');
+      if (Platform.OS !== 'web') {
+        Alert.alert('Error', error.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -99,6 +107,12 @@ export const Login = () => {
             {isSignUp ? 'Create your account' : 'Welcome back'}
           </Text>
         </View>
+
+        {errorMsg ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{errorMsg}</Text>
+          </View>
+        ) : null}
 
         <View style={styles.form}>
           {isSignUp && (
@@ -155,7 +169,10 @@ export const Login = () => {
 
           <TouchableOpacity 
             style={styles.switchButton}
-            onPress={() => setIsSignUp(!isSignUp)}
+            onPress={() => {
+              setIsSignUp(!isSignUp);
+              setErrorMsg('');
+            }}
           >
             <Text style={styles.switchText}>
               {isSignUp 
@@ -203,6 +220,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#94a3b8',
     fontWeight: '500',
+  },
+  errorContainer: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  errorText: {
+    color: '#ef4444',
+    fontSize: 14,
+    fontWeight: '600',
   },
   form: {
     gap: 16,

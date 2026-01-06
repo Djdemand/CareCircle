@@ -1,516 +1,351 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  TouchableOpacity, 
-  StyleSheet, 
-  ScrollView, 
-  Alert,
-  RefreshControl 
-} from 'react-native';
-import { useAuth } from '../hooks/useAuth';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView, TextInput } from 'react-native';
 import { supabase } from '../utils/supabase';
-import { Droplets, Plus, Trash2, Target, TrendingUp } from 'lucide-react-native';
+import { useAuth } from '../hooks/useAuth';
+import { getCurrentPatientId, insertHydrationLog } from '../utils/multitenancyHelper';
 
-interface HydrationLog {
-  id: string;
-  amount_ml: number;
-  logged_at: string;
-  logged_by: string;
-}
-
-interface Caregiver {
-  id: string;
-  name: string;
-}
-
-export const HydrationTracker = () => {
+export default function HydrationTracker() {
   const { user } = useAuth();
-  const [logs, setLogs] = useState<HydrationLog[]>([]);
-  const [caregivers, setCaregivers] = useState<Caregiver[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
-  const [dailyGoal] = useState(2000); // 2 liters default goal
+  const [waterAmount, setWaterAmount] = useState('');
+  const [todayLogs, setTodayLogs] = useState<any[]>([]);
+  const [dailyGoal, setDailyGoal] = useState(128);  // Default 128 oz
+  const [loading, setLoading] = useState(false);
+  const [patientId, setPatientId] = useState<string | null>(null);
 
   useEffect(() => {
-    loadLogs();
-    setupRealtimeSubscription();
-  }, []);
+    if (user) {
+      loadPatientId();
+    }
+  }, [user]);
 
-  const loadLogs = async () => {
+  useEffect(() => {
+    if (user && patientId) {
+      loadTodayLogs();
+      loadDailyGoal();
+    }
+  }, [user, patientId]);
+
+  const loadPatientId = async () => {
     try {
-      // Load today's hydration logs - use local midnight to avoid timezone issues
-      const now = new Date();
-      const localMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-      
-      const { data, error } = await supabase
-        .from('hydration_logs')
-        .select('*')
-        .gte('logged_at', localMidnight)
-        .order('logged_at', { ascending: false });
-
-      if (error) throw error;
-
-      if (data) setLogs(data);
-
-      // Load caregivers
-      const { data: caregiversData } = await supabase
-        .from('caregivers')
-        .select('*');
-
-      if (caregiversData) setCaregivers(caregiversData);
+      const id = await getCurrentPatientId();
+      setPatientId(id);
     } catch (error: any) {
-      Alert.alert('Error', error.message);
+      console.error('Error loading patient ID:', error);
+      Alert.alert('Error', 'Could not load patient information');
     }
   };
 
-  const setupRealtimeSubscription = () => {
-    const subscription = supabase
-      .channel('hydration-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'hydration_logs' }, () => {
-        loadLogs();
-      })
-      .subscribe();
+  const loadTodayLogs = async () => {
+    if (!user || !patientId) return;
 
-    return () => subscription.unsubscribe();
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      const { data, error } = await supabase
+        .from('hydration_logs')
+        .select('*')
+        .eq('patient_id', patientId)
+        .gte('logged_at', today.toISOString())
+        .lt('logged_at', tomorrow.toISOString())
+        .order('logged_at', { ascending: false });
+
+      if (error) {
+        console.error('Error loading hydration logs:', error);
+        return;
+      }
+
+      setTodayLogs(data || []);
+    } catch (error) {
+      console.error('Error in loadTodayLogs:', error);
+    }
   };
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadLogs();
-    setRefreshing(false);
+  const loadDailyGoal = async () => {
+    if (!user || !patientId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('team_settings')
+        .select('hydration_goal')
+        .eq('patient_id', patientId)
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error loading daily goal:', error);
+        return;
+      }
+
+      if (data && data.hydration_goal) {
+        setDailyGoal(data.hydration_goal);
+      }
+    } catch (error) {
+      console.error('Error in loadDailyGoal:', error);
+    }
   };
 
-  const handleAddWater = async (amount: number) => {
+  const addWater = async () => {
+    const amount = parseInt(waterAmount);
+    if (!amount || amount <= 0) {
+      Alert.alert('Error', 'Please enter a valid amount');
+      return;
+    }
+
+    if (!user) {
+      Alert.alert('Error', 'You must be logged in');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      await insertHydrationLog(amount, user.id);
+      
+      setWaterAmount('');
+      loadTodayLogs();
+      Alert.alert('Success', `Added ${amount}oz of water`);
+    } catch (error: any) {
+      console.error('Error adding water:', error);
+      Alert.alert('Error', error.message || 'Failed to add water log');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteLog = async (logId: string) => {
     if (!user) return;
 
     try {
       const { error } = await supabase
         .from('hydration_logs')
-        .insert({
-          amount_ml: amount,
-          logged_at: new Date().toISOString(),
-          logged_by: user.id,
-        });
+        .delete()
+        .eq('id', logId);
 
-      if (error) throw error;
-    } catch (error: any) {
-      Alert.alert('Error', error.message);
+      if (error) {
+        console.error('Error deleting log:', error);
+        Alert.alert('Error', 'Failed to delete log');
+        return;
+      }
+
+      loadTodayLogs();
+    } catch (error) {
+      console.error('Error in deleteLog:', error);
+      Alert.alert('Error', 'An unexpected error occurred');
     }
   };
 
-  const handleDeleteLog = async (logId: string) => {
-    Alert.alert(
-      'Delete Entry',
-      'Are you sure you want to delete this hydration log?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const { error } = await supabase
-                .from('hydration_logs')
-                .delete()
-                .eq('id', logId);
+  const totalWater = todayLogs.reduce((sum, log) => sum + (log.amount_oz || 0), 0);
+  const progress = Math.min((totalWater / dailyGoal) * 100, 100);
 
-              if (error) throw error;
-            } catch (error: any) {
-              Alert.alert('Error', error.message);
-            }
-          },
-        },
-      ]
+  if (!patientId) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.loadingText}>Loading...</Text>
+      </View>
     );
-  };
-
-  const getTodayTotal = () => {
-    return logs.reduce((sum, log) => sum + log.amount_ml, 0);
-  };
-
-  const getProgress = () => {
-    const total = getTodayTotal();
-    return Math.min((total / dailyGoal) * 100, 100);
-  };
-
-  const getRemaining = () => {
-    const total = getTodayTotal();
-    return Math.max(0, dailyGoal - total);
-  };
-
-  const getGlassesCount = () => {
-    const total = getTodayTotal();
-    return Math.floor(total / 250); // Assuming 250ml per glass
-  };
-
-  const formatAmount = (ml: number) => {
-    if (ml >= 1000) {
-      return `${(ml / 1000).toFixed(1)}L`;
-    }
-    // Convert ml to oz for display (1 oz ≈ 29.57 ml)
-    const oz = (ml / 29.57).toFixed(0);
-    return `${oz} oz`; // Ensure space between number and "oz"
-  };
-
-  const WaterButton = ({ amount, label }: { amount: number; label: string }) => (
-    <TouchableOpacity 
-      style={styles.waterButton}
-      onPress={() => handleAddWater(amount)}
-    >
-      <Droplets size={24} color="#3b82f6" />
-      <Text style={styles.waterButtonLabel}>{label}</Text>
-      <Text style={styles.waterButtonAmount}>{formatAmount(amount)}</Text>
-    </TouchableOpacity>
-  );
-
-  const todayTotal = getTodayTotal();
-  const progress = getProgress();
-  const remaining = getRemaining();
-  const glasses = getGlassesCount();
+  }
 
   return (
-    <View style={styles.container}>
-      <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#3b82f6" />
-        }
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Progress Card */}
-        <View style={styles.progressCard}>
-          <View style={styles.progressHeader}>
-            <View style={styles.progressIcon}>
-              <Droplets size={32} color="#3b82f6" />
-            </View>
-            <View>
-              <Text style={styles.progressTitle}>Today's Hydration</Text>
-              <Text style={styles.progressSubtitle}>
-                {remaining > 0 ? `${formatAmount(remaining)} remaining` : 'Goal reached! 🎉'}
-              </Text>
-            </View>
-          </View>
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Hydration Tracker</Text>
+        <Text style={styles.subtitle}>Track your daily water intake</Text>
+      </View>
 
-          <View style={styles.progressBarContainer}>
-            <View style={styles.progressBar}>
-              <View style={[styles.progressFill, { width: `${progress}%` }]} />
-            </View>
-            <Text style={styles.progressPercent}>{Math.round(progress)}%</Text>
-          </View>
-
-          <View style={styles.statsRow}>
-            <View style={styles.stat}>
-              <Text style={styles.statValue}>{formatAmount(todayTotal)}</Text>
-              <Text style={styles.statLabel}>Consumed</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.stat}>
-              <Text style={styles.statValue}>{glasses}</Text>
-              <Text style={styles.statLabel}>Glasses</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.stat}>
-              <Text style={styles.statValue}>{formatAmount(dailyGoal)}</Text>
-              <Text style={styles.statLabel}>Goal</Text>
-            </View>
-          </View>
+      <View style={styles.progressContainer}>
+        <View style={styles.progressBar}>
+          <View style={[styles.progressFill, { width: `${progress}%` }]} />
         </View>
+        <Text style={styles.progressText}>
+          {totalWater}oz / {dailyGoal}oz
+        </Text>
+      </View>
 
-        {/* Quick Add Buttons */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Add</Text>
-          <View style={styles.waterButtonsGrid}>
-            <WaterButton amount={150} label="Small" />
-            <WaterButton amount={250} label="Glass" />
-            <WaterButton amount={350} label="Large" />
-            <WaterButton amount={500} label="Bottle" />
-          </View>
-        </View>
-
-        {/* Today's Logs */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Today's Log</Text>
-            {logs.length > 0 && (
-              <View style={styles.trendBadge}>
-                <TrendingUp size={12} color="#34d399" />
-                <Text style={styles.trendText}>{logs.length} entries</Text>
-              </View>
-            )}
-          </View>
-
-          {logs.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Droplets size={48} color="#475569" />
-              <Text style={styles.emptyText}>No hydration logged today</Text>
-              <Text style={styles.emptyHint}>
-                Tap a quick add button to start tracking
-              </Text>
-            </View>
-          ) : (
-            logs.map(log => {
-              const caregiver = caregivers.find(c => c.id === log.logged_by);
-              return (
-                <View key={log.id} style={styles.logItem}>
-                  <View style={styles.logIcon}>
-                    <Droplets size={16} color="#3b82f6" />
-                  </View>
-                  <View style={styles.logContent}>
-                    <Text style={styles.logAmount}>{formatAmount(log.amount_ml)}</Text>
-                    <Text style={styles.logInfo}>
-                      by {caregiver?.name || 'Unknown'} • {new Date(log.logged_at).toLocaleTimeString('en-US', { 
-                        hour: 'numeric', 
-                        minute: '2-digit' 
-                      })}
-                    </Text>
-                  </View>
-                  <TouchableOpacity 
-                    style={styles.deleteButton}
-                    onPress={() => handleDeleteLog(log.id)}
-                  >
-                    <Trash2 size={16} color="#ef4444" />
-                  </TouchableOpacity>
-                </View>
-              );
-            })
-          )}
-        </View>
-
-        {/* Goal Info */}
-        <View style={styles.infoBox}>
-          <View style={styles.infoBoxHeader}>
-            <Target size={20} color="#3b82f6" />
-            <Text style={styles.infoBoxTitle}>Daily Goal</Text>
-          </View>
-          <Text style={styles.infoBoxText}>
-            The recommended daily water intake is approximately 2 liters (8 glasses). 
-            Adjust this goal based on your individual needs, activity level, and climate.
+      <View style={styles.inputContainer}>
+        <TextInput
+          style={styles.input}
+          value={waterAmount}
+          onChangeText={setWaterAmount}
+          placeholder="Amount (oz)"
+          keyboardType="numeric"
+          placeholderTextColor="#999"
+        />
+        <TouchableOpacity
+          style={[styles.addButton, loading && styles.buttonDisabled]}
+          onPress={addWater}
+          disabled={loading}
+        >
+          <Text style={styles.addButtonText}>
+            {loading ? 'Adding...' : 'Add'}
           </Text>
-        </View>
-      </ScrollView>
-    </View>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.logsContainer}>
+        <Text style={styles.logsTitle}>Today's Logs</Text>
+        {todayLogs.length === 0 ? (
+          <Text style={styles.noLogs}>No logs yet today</Text>
+        ) : (
+          todayLogs.map((log) => (
+            <View key={log.id} style={styles.logItem}>
+              <View style={styles.logInfo}>
+                <Text style={styles.logAmount}>{log.amount_oz}oz</Text>
+                <Text style={styles.logTime}>
+                  {new Date(log.logged_at).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.deleteButton}
+                onPress={() => deleteLog(log.id)}
+              >
+                <Text style={styles.deleteButtonText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+          ))
+        )}
+      </View>
+    </ScrollView>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#f5f5f5',
   },
-  scrollView: {
-    flex: 1,
+  loadingText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginTop: 20,
   },
-  scrollContent: {
+  header: {
     padding: 20,
+    backgroundColor: '#3498db',
   },
-  progressCard: {
-    backgroundColor: '#1e293b',
-    borderRadius: 20,
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#ecf0f1',
+    marginTop: 5,
+  },
+  progressContainer: {
+    margin: 20,
     padding: 20,
-    marginBottom: 24,
-  },
-  progressHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  progressIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-  },
-  progressTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#f8fafc',
-    marginBottom: 4,
-  },
-  progressSubtitle: {
-    fontSize: 14,
-    color: '#94a3b8',
-  },
-  progressBarContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   progressBar: {
-    flex: 1,
-    height: 12,
-    backgroundColor: '#0f172a',
-    borderRadius: 6,
+    height: 20,
+    backgroundColor: '#ecf0f1',
+    borderRadius: 10,
     overflow: 'hidden',
-    marginRight: 12,
+    marginBottom: 10,
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#3b82f6',
-    borderRadius: 6,
+    backgroundColor: '#3498db',
   },
-  progressPercent: {
+  progressText: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#f8fafc',
-    minWidth: 45,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+    textAlign: 'center',
   },
-  statsRow: {
+  inputContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#334155',
+    margin: 20,
+    gap: 10,
   },
-  stat: {
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#f8fafc',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#94a3b8',
-    fontWeight: '500',
-  },
-  statDivider: {
-    width: 1,
-    backgroundColor: '#334155',
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#f8fafc',
-  },
-  trendBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(52, 211, 153, 0.1)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    gap: 4,
-  },
-  trendText: {
-    color: '#34d399',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  waterButtonsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  waterButton: {
-    width: '48%',
-    backgroundColor: '#1e293b',
-    borderRadius: 16,
-    padding: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  waterButtonLabel: {
-    color: '#94a3b8',
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  waterButtonAmount: {
-    color: '#f8fafc',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  emptyText: {
-    color: '#f8fafc',
+  input: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 15,
     fontSize: 16,
-    fontWeight: '600',
-    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
   },
-  emptyHint: {
-    color: '#64748b',
-    fontSize: 14,
-    marginTop: 4,
+  addButton: {
+    backgroundColor: '#3498db',
+    borderRadius: 10,
+    paddingHorizontal: 20,
+    justifyContent: 'center',
+  },
+  buttonDisabled: {
+    backgroundColor: '#bdc3c7',
+  },
+  addButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  logsContainer: {
+    margin: 20,
+  },
+  logsTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+    marginBottom: 15,
+  },
+  noLogs: {
+    fontSize: 16,
+    color: '#7f8c8d',
+    textAlign: 'center',
+    padding: 20,
   },
   logItem: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#1e293b',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 8,
-  },
-  logIcon: {
-    width: 32,
-    height: 32,
+    backgroundColor: '#fff',
+    padding: 15,
     borderRadius: 10,
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  logContent: {
+  logInfo: {
     flex: 1,
   },
   logAmount: {
-    color: '#f8fafc',
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 2,
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2c3e50',
   },
-  logInfo: {
-    color: '#94a3b8',
-    fontSize: 12,
+  logTime: {
+    fontSize: 14,
+    color: '#7f8c8d',
+    marginTop: 5,
   },
   deleteButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    alignItems: 'center',
+    backgroundColor: '#e74c3c',
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     justifyContent: 'center',
-  },
-  infoBox: {
-    backgroundColor: 'rgba(59, 130, 246, 0.05)',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.2)',
-  },
-  infoBoxHeader: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
   },
-  infoBoxTitle: {
-    color: '#3b82f6',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  infoBoxText: {
-    color: '#94a3b8',
-    fontSize: 13,
-    lineHeight: 18,
+  deleteButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
 });

@@ -7,10 +7,12 @@ import { useAuth } from './hooks/useAuth';
 import { Login } from './screens/Login';
 import { Dashboard } from './screens/Dashboard';
 import { MedicationList } from './screens/MedicationList';
-import { AddMedication } from './screens/AddMedication';
+import AddMedication from './screens/AddMedication';
 import { Profile } from './screens/Profile';
 import { TeamManagement } from './screens/TeamManagement';
-import { HydrationTracker } from './screens/HydrationTracker';
+import HydrationTracker from './screens/HydrationTracker';
+import { JuiceTracker } from './screens/JuiceTracker';
+import { BMTracker } from './screens/BMTracker';
 import { supabase } from './utils/supabase';
 
 interface Medication {
@@ -31,6 +33,8 @@ export type RootStackParamList = {
   Profile: undefined;
   TeamManagement: undefined;
   HydrationTracker: undefined;
+  JuiceTracker: undefined;
+  BMTracker: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -130,6 +134,16 @@ export default function App() {
                 name="HydrationTracker" 
                 component={HydrationTracker}
                 options={{ title: 'Hydration' }}
+              />
+              <Stack.Screen 
+                name="JuiceTracker" 
+                component={JuiceTracker}
+                options={{ title: 'Juice' }}
+              />
+              <Stack.Screen 
+                name="BMTracker" 
+                component={BMTracker}
+                options={{ title: 'Bowel Health' }}
               />
             </>
           )}

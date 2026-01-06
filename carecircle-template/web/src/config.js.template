@@ -1,0 +1,7 @@
+// Supabase Configuration
+// IMPORTANT: These values should be set in your Netlify Environment Variables
+// or replaced here for local development if not using .env files.
+window.ENV = {
+  VITE_SUPABASE_URL: 'https://oydyrdcnoygrzjapanbd.supabase.co',
+  VITE_SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95ZHlyZGNub3lncnpqYXBhbmJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY0OTE1MjIsImV4cCI6MjA4MjA2NzUyMn0.lvQkpUe4tSbElwKjUCz75RISH6E59U1JGuYZU9wDuDo'
+};

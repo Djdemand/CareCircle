@@ -1,37 +1,35 @@
 import { defineConfig, loadEnv } from 'vite';
+import react from '@vitejs/plugin-react';
 import path from 'path';
 
 export default defineConfig(({ mode }) => {
-  // Load env file based on `mode` in the current working directory.
-  // Set the third parameter to '' to load all env regardless of the `VITE_` prefix.
   const env = loadEnv(mode, process.cwd(), '');
 
   return {
-    root: 'web',
-    publicDir: 'public',
+    root: '.',
+    plugins: [react()],
     build: {
-      outDir: '../dist',
+      outDir: 'dist',
       emptyOutDir: true,
       rollupOptions: {
         input: {
-          main: path.resolve(__dirname, 'web/index.html')
+          main: path.resolve(__dirname, 'index.html')
         }
       }
     },
     resolve: {
       alias: {
+        'react-native': 'react-native-web',
         '@': path.resolve(__dirname, './src'),
       },
-    },
-    server: {
-      port: 3000,
-      open: true,
+      extensions: ['.web.tsx', '.web.ts', '.tsx', '.ts', '.web.jsx', '.web.js', '.jsx', '.js']
     },
     define: {
-      // Ensure Supabase config is available globally
-      // These values should be set in your environment variables or .env file
-      'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL || ''),
-      'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY || '')
+      global: 'window',
+      'process.env': {
+        EXPO_PUBLIC_SUPABASE_URL: env.VITE_SUPABASE_URL || env.EXPO_PUBLIC_SUPABASE_URL || '',
+        EXPO_PUBLIC_SUPABASE_ANON_KEY: env.VITE_SUPABASE_ANON_KEY || env.EXPO_PUBLIC_SUPABASE_ANON_KEY || ''
+      }
     }
   };
 });

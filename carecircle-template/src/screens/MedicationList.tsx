@@ -128,6 +128,17 @@ export const MedicationList = ({ navigation }: Props) => {
         return;
       }
 
+      // Fetch current user's patient_id
+      const { data: currentUserCaregiver } = await supabase
+        .from('caregivers')
+        .select('patient_id')
+        .eq('id', user.id)
+        .single();
+
+      if (!currentUserCaregiver?.patient_id) {
+        throw new Error('Could not find your patient circle');
+      }
+
       // Create new log entry
       const { error } = await supabase
         .from('med_logs')
@@ -135,6 +146,7 @@ export const MedicationList = ({ navigation }: Props) => {
           medication_id: medicationId,
           taken_at: now.toISOString(),
           taken_by: user.id,
+          patient_id: currentUserCaregiver.patient_id,
         });
 
       if (error) throw error;
